@@ -75,6 +75,12 @@
             <artifactId>nimbus-jose-jwt</artifactId>
             <version>10.6</version>
         </dependency>
+        <!-- X.509 certificate generation for the simulator CA and leaf certs -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>1.83</version>
+        </dependency>
     </dependencies>
 
     <build>
