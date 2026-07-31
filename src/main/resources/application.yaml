@@ -1,0 +1,52 @@
+debug: false
+trace: false
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss} [%thread] [%-5level] %class{36}.%M | %msg%n"
+  level:
+    de.arbeitsagentur.opdt: debug
+    root: info
+
+spring:
+  application:
+    name: "wallet-simulator"
+    version: "latest"
+  threads:
+    virtual:
+      enabled: true
+  main:
+    banner-mode: off
+  thymeleaf:
+    prefix: "classpath:views/"
+    cache: false
+    suffix: .html
+  web:
+    resources:
+      cache:
+        period: 0
+      static-locations: "classpath:static"
+
+app:
+  basepath:
+  env: "localDEV"
+  web:
+    title: "EUDI Wallet Simulator"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+  endpoint:
+    health:
+      probes:
+        enabled: true
+        add-additional-paths: true
+  health:
+    defaults:
+      enabled: true
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

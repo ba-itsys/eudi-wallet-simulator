@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head data-th-insert="~{fragments/snippets :: head}">
+    <title>EUDI Wallet Simulator</title>
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav data-th-replace="~{fragments/snippets :: navbar}"></nav>
+<div class="container my-4">
+    <h1>EUDI Wallet Simulator</h1>
+    <p class="text-muted">
+        Web-based wallet simulator for testing OID4VP verifiers. A verifier sends the browser here via its
+        wallet link (<code>/authorize?client_id=&hellip;&amp;request_uri=&hellip;</code>); credentials, trust lists,
+        the status list and the revocation API are managed from this page.
+    </p>
+</div>
+<footer data-th-replace="~{fragments/snippets :: footer}"></footer>
+</body>
+</html>
