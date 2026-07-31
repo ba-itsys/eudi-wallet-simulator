@@ -29,9 +29,12 @@ spring:
 
 app:
   basepath:
+  base-url: "http://localhost:8080"
   env: "localDEV"
   web:
     title: "EUDI Wallet Simulator"
+  resources:
+    credentials: "classpath:credentials.yml"
 
 management:
   endpoints:
