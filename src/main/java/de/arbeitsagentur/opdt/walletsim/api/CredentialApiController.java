@@ -1,9 +1,9 @@
 package de.arbeitsagentur.opdt.walletsim.api;
 
+import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class CredentialApiController {
 
     private final CredentialStore store;
-    private final String statusListUri;
+    private final AppUrls urls;
 
-    public CredentialApiController(CredentialStore store, @Value("${app.base-url}") String baseUrl) {
+    public CredentialApiController(CredentialStore store, AppUrls urls) {
         this.store = store;
-        this.statusListUri = baseUrl + "/status-list";
+        this.urls = urls;
     }
 
     @GetMapping
@@ -37,6 +37,6 @@ public class CredentialApiController {
 
     private CredentialResponse toResponse(StoredCredential credential) {
         int status = store.statusOf(credential.id()).orElse(0);
-        return CredentialResponse.of(credential, statusListUri, status);
+        return CredentialResponse.of(credential, urls.statusListUri(), status);
     }
 }

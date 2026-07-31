@@ -8,6 +8,7 @@ import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -20,7 +21,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -35,13 +35,13 @@ public class SdJwtIssuer {
     private static final String SD_JWT_VC_TYP = "dc+sd-jwt";
 
     private final SimulatorPki pki;
-    private final String baseUrl;
+    private final AppUrls urls;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final SecureRandom random = new SecureRandom();
 
-    public SdJwtIssuer(SimulatorPki pki, @Value("${app.base-url}") String baseUrl) {
+    public SdJwtIssuer(SimulatorPki pki, AppUrls urls) {
         this.pki = pki;
-        this.baseUrl = baseUrl;
+        this.urls = urls;
     }
 
     public String issue(CredentialDefinition definition, int statusIndex) {
@@ -59,12 +59,12 @@ public class SdJwtIssuer {
 
             Instant now = Instant.now();
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                    .issuer(baseUrl)
+                    .issuer(urls.baseUrl())
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(definition.validityDays(), ChronoUnit.DAYS)))
                     .claim("vct", definition.vct())
                     .claim("cnf", Map.of("jwk", pki.holderKey().toPublicJWK().toJSONObject()))
-                    .claim("status", Map.of("status_list", Map.of("uri", baseUrl + "/status-list", "idx", statusIndex)))
+                    .claim("status", Map.of("status_list", Map.of("uri", urls.statusListUri(), "idx", statusIndex)))
                     .claim("_sd", digests)
                     .claim("_sd_alg", "sha-256")
                     .build();

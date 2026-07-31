@@ -32,11 +32,15 @@ public class SimulatorPki {
 
     private static final X500Name CA_NAME = new X500Name("CN=EUDI Wallet Simulator CA,O=EUDI Wallet Simulator");
     private static final X500Name ISSUER_NAME = new X500Name("CN=EUDI Wallet Simulator Issuer,O=EUDI Wallet Simulator");
+    private static final X500Name WALLET_PROVIDER_NAME =
+            new X500Name("CN=EUDI Wallet Simulator Wallet Provider,O=EUDI Wallet Simulator");
 
     private final KeyPair caKeyPair;
     private final X509Certificate caCertificate;
     private final KeyPair issuerKeyPair;
     private final X509Certificate issuerCertificate;
+    private final KeyPair walletProviderKeyPair;
+    private final X509Certificate walletProviderCertificate;
     private final ECKey holderKey;
 
     public SimulatorPki() {
@@ -45,6 +49,9 @@ public class SimulatorPki {
             this.caCertificate = selfSignedCa(caKeyPair);
             this.issuerKeyPair = generateP256KeyPair();
             this.issuerCertificate = leafCertificate(ISSUER_NAME, issuerKeyPair, caKeyPair, caCertificate);
+            this.walletProviderKeyPair = generateP256KeyPair();
+            this.walletProviderCertificate =
+                    leafCertificate(WALLET_PROVIDER_NAME, walletProviderKeyPair, caKeyPair, caCertificate);
             KeyPair holderKeyPair = generateP256KeyPair();
             this.holderKey = new ECKey.Builder(Curve.P_256, (ECPublicKey) holderKeyPair.getPublic())
                     .privateKey(holderKeyPair.getPrivate())
@@ -68,6 +75,14 @@ public class SimulatorPki {
 
     public PrivateKey caPrivateKey() {
         return caKeyPair.getPrivate();
+    }
+
+    public X509Certificate walletProviderCertificate() {
+        return walletProviderCertificate;
+    }
+
+    public PrivateKey walletProviderPrivateKey() {
+        return walletProviderKeyPair.getPrivate();
     }
 
     /** Holder key pair used for credential binding (cnf.jwk) and key-binding JWTs. */
