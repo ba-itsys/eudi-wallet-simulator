@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head data-th-insert="~{fragments/snippets :: head}">
+    <title>EUDI Wallet Simulator</title>
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav data-th-replace="~{fragments/snippets :: navbar}"></nav>
+<div class="container my-4">
+    <h1>Request failed</h1>
+    <div class="alert alert-danger" data-th-text="${errorMessage}">Error message</div>
+</div>
+<footer data-th-replace="~{fragments/snippets :: footer}"></footer>
+</body>
+</html>
