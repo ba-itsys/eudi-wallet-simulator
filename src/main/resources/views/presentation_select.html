@@ -12,6 +12,13 @@
         Select a credential to share.
     </p>
 
+    <div id="conformance-warnings" class="alert alert-warning" data-th-if="${not #lists.isEmpty(findings)}">
+        <strong>Verifier conformance warnings</strong>
+        <ul class="mb-0">
+            <li data-th-each="finding : ${findings}" data-th-text="${finding.message}">finding</li>
+        </ul>
+    </div>
+
     <form method="post" data-th-action="@{__${basepath}__/authorize/submit}">
         <input type="hidden" name="flowState" data-th-value="${flowState}"/>
 

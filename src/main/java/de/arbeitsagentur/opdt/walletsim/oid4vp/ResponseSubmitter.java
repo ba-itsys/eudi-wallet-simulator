@@ -21,15 +21,28 @@ public class ResponseSubmitter {
 
     private final RestClient restClient = RestClient.create();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ResponseEncryptor responseEncryptor;
+
+    public ResponseSubmitter(ResponseEncryptor responseEncryptor) {
+        this.responseEncryptor = responseEncryptor;
+    }
 
     public SubmissionResult submitVpToken(AuthorizationRequest request, String credentialQueryId, String presentation) {
+        String vpToken = objectMapper.writeValueAsString(java.util.Map.of(credentialQueryId, List.of(presentation)));
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        if (request.state() != null) {
-            form.add("state", request.state());
+        if ("direct_post.jwt".equals(request.responseMode())) {
+            java.util.Map<String, String> parameters = new java.util.LinkedHashMap<>();
+            if (request.state() != null) {
+                parameters.put("state", request.state());
+            }
+            parameters.put("vp_token", vpToken);
+            form.add("response", responseEncryptor.encrypt(request, parameters));
+        } else {
+            if (request.state() != null) {
+                form.add("state", request.state());
+            }
+            form.add("vp_token", vpToken);
         }
-        form.add(
-                "vp_token",
-                objectMapper.writeValueAsString(java.util.Map.of(credentialQueryId, List.of(presentation))));
         return submit(request.responseUri(), form);
     }
 

@@ -8,6 +8,12 @@
 <div class="container my-4">
     <h1>Request failed</h1>
     <div class="alert alert-danger" data-th-text="${errorMessage}">Error message</div>
+    <div class="alert alert-warning" data-th-if="${findings != null and not #lists.isEmpty(findings)}">
+        <strong>Conformance findings</strong>
+        <ul class="mb-0">
+            <li data-th-each="finding : ${findings}" data-th-text="${finding.message}">finding</li>
+        </ul>
+    </div>
 </div>
 <footer data-th-replace="~{fragments/snippets :: footer}"></footer>
 </body>
