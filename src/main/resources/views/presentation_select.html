@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head data-th-insert="~{fragments/snippets :: head}">
+    <title>EUDI Wallet Simulator</title>
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav data-th-replace="~{fragments/snippets :: navbar}"></nav>
+<div class="container my-4">
+    <h1>Present a credential</h1>
+    <p class="text-muted">
+        Verifier <code data-th-text="${verifierClientId}">client id</code> requests a credential presentation.
+        Select a credential to share.
+    </p>
+
+    <form method="post" data-th-action="@{__${basepath}__/authorize/submit}">
+        <input type="hidden" name="flowState" data-th-value="${flowState}"/>
+
+        <div class="alert alert-warning" data-th-if="${#lists.isEmpty(matches)}">
+            No credential in this wallet matches the verifier's query.
+        </div>
+
+        <h4 data-th-unless="${#lists.isEmpty(matches)}">Credentials</h4>
+        <div class="row row-cols-1 row-cols-md-3 g-2 mb-3">
+            <div class="col" data-th-each="match, iterStat : ${matches}">
+                <div class="card h-100" data-th-attr="data-credential-id=${match.credential.id}">
+                    <div class="card-body form-check">
+                        <input class="form-check-input" type="radio" name="credentialId"
+                               data-th-id="'credential_' + ${iterStat.count}"
+                               data-th-value="${match.credential.id}"
+                               data-th-checked="${iterStat.first}"/>
+                        <label class="form-check-label w-100" data-th-for="'credential_' + ${iterStat.count}">
+                            <strong data-th-text="${match.credential.name}">Credential</strong><br/>
+                            <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
+                            <small>Disclosed claims:
+                                <span data-th-text="${#strings.listJoin(match.claimsToDisclose, ', ')}">claims</span>
+                            </small><br/>
+                            <code data-th-text="${match.credential.id}">id</code>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:15rem"
+                data-th-disabled="${#lists.isEmpty(matches)}">Present credential</button>
+        <button type="submit" class="btn btn-secondary" style="width:15rem"
+                data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>
+    </form>
+</div>
+<footer data-th-replace="~{fragments/snippets :: footer}"></footer>
+</body>
+</html>
