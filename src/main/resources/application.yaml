@@ -30,6 +30,8 @@ spring:
 app:
   basepath:
   base-url: "http://localhost:8080"
+  conformance:
+    mode: "debug"
   env: "localDEV"
   web:
     title: "EUDI Wallet Simulator"

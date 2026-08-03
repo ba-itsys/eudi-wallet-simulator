@@ -4,6 +4,7 @@ import de.arbeitsagentur.opdt.walletsim.api.CredentialResponse.StatusReference;
 import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
+import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,10 +23,12 @@ public class CredentialStatusApiController {
 
     private final CredentialStore store;
     private final AppUrls urls;
+    private final ActivityLog activityLog;
 
-    public CredentialStatusApiController(CredentialStore store, AppUrls urls) {
+    public CredentialStatusApiController(CredentialStore store, AppUrls urls, ActivityLog activityLog) {
         this.store = store;
         this.urls = urls;
+        this.activityLog = activityLog;
     }
 
     @PostMapping
@@ -35,7 +38,13 @@ public class CredentialStatusApiController {
         }
         StoredCredential credential = requireCredential(id);
         store.setStatus(id, request.status());
-        return StatusReference.of(urls.statusListUri(), credential.statusIndex(), request.status());
+        StatusReference reference =
+                StatusReference.of(urls.statusListUri(), credential.statusIndex(), request.status());
+        activityLog.success(
+                "status",
+                "Set status " + reference.statusName() + " on credential " + id,
+                java.util.Map.of("idx", credential.statusIndex(), "status", request.status()));
+        return reference;
     }
 
     @GetMapping

@@ -1,0 +1,88 @@
+package de.arbeitsagentur.opdt.walletsim.oid4vp;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.nimbusds.jose.crypto.ECDHDecrypter;
+import com.nimbusds.jwt.EncryptedJWT;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * direct_post.jwt: the authorization response is a JWE encrypted to the verifier's ephemeral key
+ * from client_metadata.jwks, echoing that key's kid so the verifier can resolve the flow without
+ * a state form field — the contract keycloak-extension-oid4vp relies on.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class EncryptedResponseTest {
+
+    @LocalServerPort
+    private int port;
+
+    private RestClient client() {
+        return RestClient.builder()
+                .baseUrl("http://localhost:" + port)
+                .defaultStatusHandler(status -> true, (request, response) -> {})
+                .build();
+    }
+
+    @Test
+    void directPostJwtEncryptsResponseToVerifierKey() throws Exception {
+        try (TestVerifier verifier = TestVerifier.pidVerifier().withEncryptedResponses()) {
+            URI authorizeUri = URI.create("http://localhost:" + port + "/authorize?client_id="
+                    + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
+                    + "&request_uri="
+                    + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
+
+            ResponseEntity<String> picker =
+                    client().get().uri(authorizeUri).retrieve().toEntity(String.class);
+            assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
+            String flowState = extractHiddenField(picker.getBody(), "flowState");
+
+            ResponseEntity<String> submit = client().post()
+                    .uri("/authorize/submit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("credentialId=pid-maria-neumann&flowState="
+                            + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(submit.getStatusCode().is3xxRedirection()).isTrue();
+
+            TestVerifier.ReceivedResponse received = verifier.awaitResponse();
+            String jwe = received.formParameters().get("response");
+            assertThat(jwe)
+                    .as("encrypted mode posts a single 'response' JWE parameter")
+                    .isNotNull();
+
+            EncryptedJWT encrypted = EncryptedJWT.parse(jwe);
+            assertThat(encrypted.getHeader().getKeyID())
+                    .as("JWE echoes the verifier encryption key kid")
+                    .isEqualTo(verifier.responseEncryptionKey().getKeyID());
+
+            encrypted.decrypt(new ECDHDecrypter(verifier.responseEncryptionKey().toECPrivateKey()));
+            Map<String, Object> payload = encrypted.getJWTClaimsSet().getClaims();
+            assertThat(payload.get("state")).isEqualTo(verifier.state());
+
+            JsonNode vpToken = new ObjectMapper().readValue((String) payload.get("vp_token"), JsonNode.class);
+            assertThat(vpToken.get("pid").get(0).asText()).contains("~");
+        }
+    }
+
+    private static String extractHiddenField(String html, String name) {
+        String marker = "name=\"" + name + "\" value=\"";
+        int start = html.indexOf(marker);
+        assertThat(start).as("hidden field '%s' present", name).isNotNegative();
+        start += marker.length();
+        return html.substring(start, html.indexOf('"', start));
+    }
+}

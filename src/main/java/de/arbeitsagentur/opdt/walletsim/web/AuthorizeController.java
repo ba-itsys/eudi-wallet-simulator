@@ -1,5 +1,10 @@
 package de.arbeitsagentur.opdt.walletsim.web;
 
+import de.arbeitsagentur.opdt.walletsim.conformance.ConformanceSettings;
+import de.arbeitsagentur.opdt.walletsim.conformance.Finding;
+import de.arbeitsagentur.opdt.walletsim.conformance.RequestObjectValidator;
+import de.arbeitsagentur.opdt.walletsim.conformance.ValidationMode;
+import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.CredentialMatch;
@@ -10,6 +15,7 @@ import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter.SubmissionResult;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SdJwtPresentationBuilder;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,25 +26,35 @@ import org.springframework.web.bind.annotation.RequestParam;
 /**
  * The wallet's web entry point for OID4VP: a verifier link opens the credential picker, the
  * user's selection is answered with a direct_post and the browser follows the verifier's
- * redirect_uri (same-device) or sees a completion page (cross-device).
+ * redirect_uri (same-device) or sees a completion page (cross-device). Conformance findings warn
+ * in debug mode and refuse the request in strict mode.
  */
 @Controller
 public class AuthorizeController {
 
     private final RequestObjectClient requestObjectClient;
+    private final RequestObjectValidator validator;
+    private final ConformanceSettings conformanceSettings;
     private final DcqlMatcher dcqlMatcher;
     private final SdJwtPresentationBuilder presentationBuilder;
     private final ResponseSubmitter responseSubmitter;
+    private final ActivityLog activityLog;
 
     public AuthorizeController(
             RequestObjectClient requestObjectClient,
+            RequestObjectValidator validator,
+            ConformanceSettings conformanceSettings,
             DcqlMatcher dcqlMatcher,
             SdJwtPresentationBuilder presentationBuilder,
-            ResponseSubmitter responseSubmitter) {
+            ResponseSubmitter responseSubmitter,
+            ActivityLog activityLog) {
         this.requestObjectClient = requestObjectClient;
+        this.validator = validator;
+        this.conformanceSettings = conformanceSettings;
         this.dcqlMatcher = dcqlMatcher;
         this.presentationBuilder = presentationBuilder;
         this.responseSubmitter = responseSubmitter;
+        this.activityLog = activityLog;
     }
 
     @GetMapping("/authorize")
@@ -46,10 +62,27 @@ public class AuthorizeController {
             @RequestParam("client_id") String clientId, @RequestParam("request_uri") String requestUri, Model model) {
         String requestObjectJwt = requestObjectClient.fetch(requestUri);
         AuthorizationRequest request = AuthorizationRequest.parse(requestObjectJwt);
-        List<CredentialMatch> matches = dcqlMatcher.match(DcqlQuery.from(request.dcqlQuery()));
+        activityLog.success(
+                "presentation",
+                "Received authorization request from " + request.clientId(),
+                Map.of("request_uri", requestUri, "request_object", requestObjectJwt));
+
+        List<Finding> findings = validator.validate(clientId, request);
+        findings.forEach(finding -> activityLog.warning(
+                "presentation", "Request does not conform to OID4VP: " + finding.message(), Map.of()));
+        if (conformanceSettings.mode() == ValidationMode.STRICT && !findings.isEmpty()) {
+            activityLog.error(
+                    "presentation",
+                    "Refused non-conformant request in strict mode from " + request.clientId(),
+                    Map.of());
+            model.addAttribute("errorMessage", "The verifier request violates OID4VP conformance (strict mode).");
+            model.addAttribute("findings", findings);
+            return "error_view";
+        }
 
         model.addAttribute("verifierClientId", request.clientId() != null ? request.clientId() : clientId);
-        model.addAttribute("matches", matches);
+        model.addAttribute("findings", findings);
+        model.addAttribute("matches", matchCredentials(request));
         model.addAttribute("flowState", requestObjectJwt);
         return "presentation_select";
     }
@@ -60,7 +93,7 @@ public class AuthorizeController {
             @RequestParam("flowState") String flowState,
             Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(flowState);
-        CredentialMatch match = dcqlMatcher.match(DcqlQuery.from(request.dcqlQuery())).stream()
+        CredentialMatch match = matchCredentials(request).stream()
                 .filter(candidate -> candidate.credential().id().equals(credentialId))
                 .findFirst()
                 .orElseThrow(() -> new InvalidRequestException(
@@ -69,6 +102,10 @@ public class AuthorizeController {
         String presentation = presentationBuilder.build(
                 match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce());
         SubmissionResult result = responseSubmitter.submitVpToken(request, match.credentialQueryId(), presentation);
+        activityLog.success(
+                "presentation",
+                "Presented credential " + credentialId + " to " + request.clientId(),
+                Map.of("disclosed_claims", match.claimsToDisclose()));
         return complete(result, model);
     }
 
@@ -77,7 +114,16 @@ public class AuthorizeController {
         AuthorizationRequest request = AuthorizationRequest.parse(flowState);
         SubmissionResult result =
                 responseSubmitter.submitError(request, "access_denied", "The user cancelled the presentation");
+        activityLog.success("presentation", "Cancelled presentation for " + request.clientId(), Map.of());
         return complete(result, model);
+    }
+
+    private List<CredentialMatch> matchCredentials(AuthorizationRequest request) {
+        try {
+            return dcqlMatcher.match(DcqlQuery.from(request.dcqlQuery()));
+        } catch (InvalidRequestException e) {
+            return List.of();
+        }
     }
 
     private String complete(SubmissionResult result, Model model) {
@@ -90,6 +136,7 @@ public class AuthorizeController {
 
     @ExceptionHandler(InvalidRequestException.class)
     public String invalidRequest(InvalidRequestException exception, Model model) {
+        activityLog.error("presentation", exception.getMessage(), Map.of());
         model.addAttribute("errorMessage", exception.getMessage());
         return "error_view";
     }

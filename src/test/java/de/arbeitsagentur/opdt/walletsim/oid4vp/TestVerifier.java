@@ -41,9 +41,29 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
  * wallet's direct_post response, answering with a same-device redirect_uri like
  * keycloak-extension-oid4vp does.
  */
-final class TestVerifier implements AutoCloseable {
+public final class TestVerifier implements AutoCloseable {
 
-    record ReceivedResponse(Map<String, String> formParameters) {}
+    private static final String PID_DCQL_QUERY =
+            """
+            {"credentials": [{
+                "id": "pid",
+                "format": "dc+sd-jwt",
+                "meta": {"vct_values": ["urn:eudi:pid:1"]},
+                "claims": [{"path": ["family_name"]}, {"path": ["given_name"]}]
+            }]}
+            """;
+
+    public static TestVerifier pidVerifier() throws Exception {
+        return new TestVerifier(PID_DCQL_QUERY);
+    }
+
+    public record ReceivedResponse(Map<String, String> formParameters) {}
+
+    /** Mutates the request object claims before signing, to simulate non-conformant verifiers. */
+    @FunctionalInterface
+    public interface RequestCustomizer {
+        void customize(Map<String, Object> claims);
+    }
 
     private final HttpServer server;
     private final KeyPair keyPair;
@@ -52,8 +72,10 @@ final class TestVerifier implements AutoCloseable {
     private final String state = UUID.randomUUID().toString();
     private final CompletableFuture<ReceivedResponse> received = new CompletableFuture<>();
     private final String dcqlQueryJson;
+    private RequestCustomizer requestCustomizer = claims -> {};
+    private com.nimbusds.jose.jwk.ECKey responseEncryptionKey;
 
-    TestVerifier(String dcqlQueryJson) throws Exception {
+    public TestVerifier(String dcqlQueryJson) throws Exception {
         this.dcqlQueryJson = dcqlQueryJson;
         this.keyPair = generateKeyPair();
         this.certificate = selfSignedWithSanDns(keyPair, "verifier.example.com");
@@ -79,35 +101,52 @@ final class TestVerifier implements AutoCloseable {
         server.start();
     }
 
-    String clientId() {
+    public TestVerifier withRequestCustomizer(RequestCustomizer customizer) {
+        this.requestCustomizer = customizer;
+        return this;
+    }
+
+    /** Switches to direct_post.jwt with an ephemeral encryption key whose kid is the flow state. */
+    public TestVerifier withEncryptedResponses() throws Exception {
+        this.responseEncryptionKey = new com.nimbusds.jose.jwk.gen.ECKeyGenerator(com.nimbusds.jose.jwk.Curve.P_256)
+                .keyID(state)
+                .generate();
+        return this;
+    }
+
+    public com.nimbusds.jose.jwk.ECKey responseEncryptionKey() {
+        return responseEncryptionKey;
+    }
+
+    public String clientId() {
         return "x509_san_dns:verifier.example.com";
     }
 
-    String nonce() {
+    public String nonce() {
         return nonce;
     }
 
-    String state() {
+    public String state() {
         return state;
     }
 
-    String requestUri() {
+    public String requestUri() {
         return baseUrl() + "/request-object";
     }
 
-    String responseUri() {
+    public String responseUri() {
         return baseUrl() + "/callback";
     }
 
-    String redirectUri() {
+    public String redirectUri() {
         return baseUrl() + "/complete-auth?state=" + state;
     }
 
-    X509Certificate certificate() {
+    public X509Certificate certificate() {
         return certificate;
     }
 
-    ReceivedResponse awaitResponse() throws Exception {
+    public ReceivedResponse awaitResponse() throws Exception {
         return received.get(
                 java.util.concurrent.TimeUnit.SECONDS.toMillis(10), java.util.concurrent.TimeUnit.MILLISECONDS);
     }
@@ -119,32 +158,48 @@ final class TestVerifier implements AutoCloseable {
     private String requestObjectJwt() {
         try {
             Instant now = Instant.now();
-            JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                    .jwtID(UUID.randomUUID().toString())
-                    .issuer(clientId())
-                    .audience("https://self-issued.me/v2")
+            Map<String, Object> claims = new LinkedHashMap<>();
+            claims.put("jti", UUID.randomUUID().toString());
+            claims.put("iss", clientId());
+            claims.put("aud", "https://self-issued.me/v2");
+            claims.put("client_id", clientId());
+            claims.put("response_type", "vp_token");
+            claims.put("response_mode", responseEncryptionKey != null ? "direct_post.jwt" : "direct_post");
+            claims.put("response_uri", responseUri());
+            claims.put("nonce", nonce);
+            claims.put("state", state);
+            claims.put("client_metadata", clientMetadata());
+            claims.put("dcql_query", new tools.jackson.databind.ObjectMapper().readValue(dcqlQueryJson, Map.class));
+            requestCustomizer.customize(claims);
+
+            JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
                     .issueTime(Date.from(now))
-                    .expirationTime(Date.from(now.plus(5, ChronoUnit.MINUTES)))
-                    .claim("client_id", clientId())
-                    .claim("response_type", "vp_token")
-                    .claim("response_mode", "direct_post")
-                    .claim("response_uri", responseUri())
-                    .claim("nonce", nonce)
-                    .claim("state", state)
-                    .claim("client_metadata", Map.of("vp_formats_supported", Map.of("dc+sd-jwt", Map.of())))
-                    .claim("dcql_query", new tools.jackson.databind.ObjectMapper().readValue(dcqlQueryJson, Map.class))
-                    .build();
+                    .expirationTime(Date.from(now.plus(5, ChronoUnit.MINUTES)));
+            claims.forEach(builder::claim);
             SignedJWT jwt = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.ES256)
                             .type(new JOSEObjectType("oauth-authz-req+jwt"))
                             .x509CertChain(List.of(Base64.encode(certificate.getEncoded())))
                             .build(),
-                    claims);
+                    builder.build());
             jwt.sign(new ECDSASigner((ECPrivateKey) keyPair.getPrivate()));
             return jwt.serialize();
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private Map<String, Object> clientMetadata() {
+        if (responseEncryptionKey == null) {
+            return Map.of("vp_formats_supported", Map.of("dc+sd-jwt", Map.of()));
+        }
+        return Map.of(
+                "vp_formats_supported",
+                Map.of("dc+sd-jwt", Map.of()),
+                "jwks",
+                Map.of("keys", List.of(responseEncryptionKey.toPublicJWK().toJSONObject())),
+                "encrypted_response_enc_values_supported",
+                List.of("A128GCM", "A256GCM"));
     }
 
     private static Map<String, String> parseForm(String form) {
