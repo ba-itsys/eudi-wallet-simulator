@@ -5,6 +5,7 @@ import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,7 +44,7 @@ public class CredentialStatusApiController {
         activityLog.success(
                 "status",
                 "Set status " + reference.statusName() + " on credential " + id,
-                java.util.Map.of("idx", credential.statusIndex(), "status", request.status()));
+                Map.of("idx", credential.statusIndex(), "status", request.status()));
         return reference;
     }
 

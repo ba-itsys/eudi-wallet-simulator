@@ -6,10 +6,12 @@ import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ClientMetadataKeys;
 import de.arbeitsagentur.opdt.walletsim.registrar.RegistrationCertificateService;
+import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +67,7 @@ public class RequestObjectValidator {
         Object verifierInfo;
         try {
             verifierInfo = jwt.getJWTClaimsSet().getClaim("verifier_info");
-        } catch (java.text.ParseException e) {
+        } catch (ParseException e) {
             findings.add(new Finding("verifier_info cannot be read: " + e.getMessage()));
             return;
         }
@@ -173,8 +175,7 @@ public class RequestObjectValidator {
         }
         try {
             return (X509Certificate) CertificateFactory.getInstance("X.509")
-                    .generateCertificate(
-                            new java.io.ByteArrayInputStream(x5c.getFirst().decode()));
+                    .generateCertificate(new ByteArrayInputStream(x5c.getFirst().decode()));
         } catch (Exception e) {
             findings.add(new Finding("x5c certificate cannot be parsed: " + e.getMessage()));
             return null;
@@ -204,7 +205,7 @@ public class RequestObjectValidator {
     private static SignedJWT parse(String rawRequestObject) {
         try {
             return SignedJWT.parse(rawRequestObject);
-        } catch (java.text.ParseException e) {
+        } catch (ParseException e) {
             throw new IllegalStateException("Request object was parsed before validation", e);
         }
     }

@@ -4,7 +4,11 @@ import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
+import com.nimbusds.jose.jwk.Curve;
+import com.nimbusds.jose.jwk.ECKey;
+import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
 import com.nimbusds.jose.util.Base64;
+import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
@@ -15,6 +19,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.ECGenParameterSpec;
@@ -26,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
@@ -35,6 +41,7 @@ import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Minimal in-JVM OID4VP verifier: serves a signed request object on request_uri and captures the
@@ -73,7 +80,7 @@ public final class TestVerifier implements AutoCloseable {
     private final CompletableFuture<ReceivedResponse> received = new CompletableFuture<>();
     private final String dcqlQueryJson;
     private RequestCustomizer requestCustomizer = claims -> {};
-    private com.nimbusds.jose.jwk.ECKey responseEncryptionKey;
+    private ECKey responseEncryptionKey;
     private String verifierInfoJson;
 
     public TestVerifier(String dcqlQueryJson) throws Exception {
@@ -115,21 +122,19 @@ public final class TestVerifier implements AutoCloseable {
 
     /** Switches to direct_post.jwt with an ephemeral encryption key whose kid is the flow state. */
     public TestVerifier withEncryptedResponses() throws Exception {
-        this.responseEncryptionKey = new com.nimbusds.jose.jwk.gen.ECKeyGenerator(com.nimbusds.jose.jwk.Curve.P_256)
-                .keyID(state)
-                .generate();
+        this.responseEncryptionKey =
+                new ECKeyGenerator(Curve.P_256).keyID(state).generate();
         return this;
     }
 
-    public com.nimbusds.jose.jwk.ECKey responseEncryptionKey() {
+    public ECKey responseEncryptionKey() {
         return responseEncryptionKey;
     }
 
     public String clientId() {
         try {
-            byte[] hash = java.security.MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded());
-            return "x509_hash:"
-                    + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded());
+            return "x509_hash:" + Base64URL.encode(hash).toString();
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -160,8 +165,7 @@ public final class TestVerifier implements AutoCloseable {
     }
 
     public ReceivedResponse awaitResponse() throws Exception {
-        return received.get(
-                java.util.concurrent.TimeUnit.SECONDS.toMillis(10), java.util.concurrent.TimeUnit.MILLISECONDS);
+        return received.get(TimeUnit.SECONDS.toMillis(10), TimeUnit.MILLISECONDS);
     }
 
     private String baseUrl() {
@@ -182,11 +186,9 @@ public final class TestVerifier implements AutoCloseable {
             claims.put("nonce", nonce);
             claims.put("state", state);
             claims.put("client_metadata", clientMetadata());
-            claims.put("dcql_query", new tools.jackson.databind.ObjectMapper().readValue(dcqlQueryJson, Map.class));
+            claims.put("dcql_query", new ObjectMapper().readValue(dcqlQueryJson, Map.class));
             if (verifierInfoJson != null) {
-                claims.put(
-                        "verifier_info",
-                        new tools.jackson.databind.ObjectMapper().readValue(verifierInfoJson, List.class));
+                claims.put("verifier_info", new ObjectMapper().readValue(verifierInfoJson, List.class));
             }
             requestCustomizer.customize(claims);
 
