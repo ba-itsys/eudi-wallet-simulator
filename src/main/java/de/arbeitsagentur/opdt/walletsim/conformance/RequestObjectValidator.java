@@ -5,6 +5,7 @@ import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ClientMetadataKeys;
+import de.arbeitsagentur.opdt.walletsim.registrar.RegistrationCertificateService;
 import java.security.MessageDigest;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -15,14 +16,21 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
- * Collects verifier conformance findings against OpenID4VP 1.0. Findings are always collected in
- * full; whether they warn or refuse is the caller's mode decision (ADR: debug-by-default
- * validation).
+ * Collects verifier conformance findings against OpenID4VP 1.0 plus the BA profile requirement
+ * that verifier_info carries a registration certificate accepted by this wallet's registrar.
+ * Findings are always collected in full; whether they warn or refuse is the caller's mode
+ * decision (ADR: debug-by-default validation).
  */
 @Component
 public class RequestObjectValidator {
 
     private static final String REQUEST_OBJECT_TYP = "oauth-authz-req+jwt";
+
+    private final RegistrationCertificateService registrationCertificates;
+
+    public RequestObjectValidator(RegistrationCertificateService registrationCertificates) {
+        this.registrationCertificates = registrationCertificates;
+    }
 
     public List<Finding> validate(String queryClientId, AuthorizationRequest request) {
         List<Finding> findings = new ArrayList<>();
@@ -49,7 +57,39 @@ public class RequestObjectValidator {
         validateResponseMode(request, findings);
         validateClientIdPrefix(jwt, request, findings);
         validateDcqlStructure(request, findings);
+        validateVerifierInfo(jwt, request, findings);
         return findings;
+    }
+
+    private void validateVerifierInfo(SignedJWT jwt, AuthorizationRequest request, List<Finding> findings) {
+        Object verifierInfo;
+        try {
+            verifierInfo = jwt.getJWTClaimsSet().getClaim("verifier_info");
+        } catch (java.text.ParseException e) {
+            findings.add(new Finding("verifier_info cannot be read: " + e.getMessage()));
+            return;
+        }
+        if (verifierInfo == null) {
+            findings.add(new Finding(
+                    "verifier_info with a registration certificate is required (BA profile, OID4VP 1.0 §5.11)"));
+            return;
+        }
+        if (!(verifierInfo instanceof List<?> attestations) || attestations.isEmpty()) {
+            findings.add(new Finding("verifier_info must be a non-empty array of attestations (OID4VP 1.0 §5.11)"));
+            return;
+        }
+        for (Object entry : attestations) {
+            if (!(entry instanceof Map<?, ?> attestation)
+                    || !("jwt".equals(attestation.get("format")))
+                    || !(attestation.get("data") instanceof String data)) {
+                findings.add(new Finding(
+                        "Every verifier_info attestation needs format 'jwt' and string 'data' (OID4VP 1.0 §5.11)"));
+                continue;
+            }
+            registrationCertificates
+                    .validate(data, request.clientId())
+                    .ifPresent(violation -> findings.add(new Finding("verifier_info: " + violation)));
+        }
     }
 
     private static void validateResponseMode(AuthorizationRequest request, List<Finding> findings) {
@@ -83,28 +123,12 @@ public class RequestObjectValidator {
         int separator = clientId.indexOf(':');
         String prefix = separator > 0 ? clientId.substring(0, separator) : "";
         String value = separator > 0 ? clientId.substring(separator + 1) : clientId;
-        switch (prefix) {
-            case "x509_san_dns" -> validateX509SanDns(jwt, value, findings);
-            case "x509_hash" -> validateX509Hash(jwt, value, findings);
-            case "" -> {
-                // pre-registered client: no verifiable binding inside the request object
-            }
-            default ->
-                findings.add(new Finding(
-                        "Unsupported client identifier prefix '" + prefix + "' (OID4VP 1.0 §5.9): " + clientId));
+        if ("x509_hash".equals(prefix)) {
+            validateX509Hash(jwt, value, findings);
+        } else {
+            findings.add(new Finding("Client identifier prefix '" + prefix
+                    + "' is not allowed; HAIP 1.0 mandates x509_hash for signed requests: " + clientId));
         }
-    }
-
-    private void validateX509SanDns(SignedJWT jwt, String expectedDnsName, List<Finding> findings) {
-        X509Certificate leaf = leafCertificate(jwt, findings);
-        if (leaf == null) {
-            return;
-        }
-        if (!hasSanDnsName(leaf, expectedDnsName)) {
-            findings.add(new Finding("x509_san_dns client_id '" + expectedDnsName
-                    + "' is not a dNSName SAN of the request object signing certificate (OID4VP 1.0 §5.9.1)"));
-        }
-        verifySignature(jwt, leaf, findings);
     }
 
     private void validateX509Hash(SignedJWT jwt, String expectedHash, List<Finding> findings) {
@@ -154,18 +178,6 @@ public class RequestObjectValidator {
         } catch (Exception e) {
             findings.add(new Finding("x5c certificate cannot be parsed: " + e.getMessage()));
             return null;
-        }
-    }
-
-    private static boolean hasSanDnsName(X509Certificate certificate, String dnsName) {
-        try {
-            return certificate.getSubjectAlternativeNames() != null
-                    && certificate.getSubjectAlternativeNames().stream()
-                            .filter(entry -> ((Number) entry.get(0)).intValue() == 2)
-                            .map(entry -> String.valueOf(entry.get(1)))
-                            .anyMatch(dnsName::equals);
-        } catch (Exception e) {
-            return false;
         }
     }
 

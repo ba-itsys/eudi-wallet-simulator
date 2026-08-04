@@ -1,0 +1,79 @@
+{
+  "realm": "wallet-demo",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "identityProviders": [
+    {
+      "alias": "etsi-trust-list",
+      "displayName": "ETSI Trust List",
+      "providerId": "etsi-trust-list",
+      "enabled": true,
+      "config": {
+        "trustListUrl": "http://host.docker.internal:8081/trust-lists/credentials",
+        "trustListLoTEType": "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList"
+      }
+    },
+    {
+      "alias": "oid4vp",
+      "displayName": "Sign in with Wallet",
+      "providerId": "oid4vp",
+      "enabled": true,
+      "trustEmail": false,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "not-used",
+        "clientSecret": "not-used",
+        "enforceHaip": "true",
+        "responseMode": "direct_post.jwt",
+        "clientIdScheme": "x509_hash",
+        "trustMaterialIdps": "etsi-trust-list",
+        "walletScheme": "http://localhost:8081/authorize",
+        "principalAttribute": "family_name",
+        "requestObjectLifespanSeconds": "300",
+        "statusListMaxCacheTtlSeconds": "0",
+        "x509CertificatePem": "__VERIFIER_PEM__",
+        "verifierInfo": "__VERIFIER_INFO__"
+      }
+    }
+  ],
+  "identityProviderMappers": [
+    {
+      "name": "sd-jwt-family_name-to-lastName",
+      "identityProviderAlias": "oid4vp",
+      "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "credential.type": "urn:eudi:pid:1",
+        "claim": "family_name",
+        "user.attribute": "lastName"
+      }
+    },
+    {
+      "name": "sd-jwt-given_name-to-firstName",
+      "identityProviderAlias": "oid4vp",
+      "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "credential.type": "urn:eudi:pid:1",
+        "claim": "given_name",
+        "user.attribute": "firstName"
+      }
+    },
+    {
+      "name": "sd-jwt-birthdate-to-attribute",
+      "identityProviderAlias": "oid4vp",
+      "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "credential.type": "urn:eudi:pid:1",
+        "claim": "birthdate",
+        "user.attribute": "birthdate"
+      }
+    }
+  ]
+}
