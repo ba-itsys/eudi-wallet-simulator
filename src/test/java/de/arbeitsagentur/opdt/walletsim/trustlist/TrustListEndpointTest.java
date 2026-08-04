@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
+import java.io.ByteArrayInputStream;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
@@ -108,7 +109,7 @@ class TrustListEndpointTest {
         try {
             return (X509Certificate) CertificateFactory.getInstance("X.509")
                     .generateCertificate(
-                            new java.io.ByteArrayInputStream(Base64.getDecoder().decode(base64Der)));
+                            new ByteArrayInputStream(Base64.getDecoder().decode(base64Der)));
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jwt.SignedJWT;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -108,7 +109,7 @@ class StatusListTest {
         assertThat(jwt.getHeader().getType().toString()).isEqualTo("statuslist+jwt");
 
         X509Certificate leaf = (X509Certificate) CertificateFactory.getInstance("X.509")
-                .generateCertificate(new java.io.ByteArrayInputStream(
+                .generateCertificate(new ByteArrayInputStream(
                         jwt.getHeader().getX509CertChain().getFirst().decode()));
         assertThat(jwt.verify(new ECDSAVerifier((ECPublicKey) leaf.getPublicKey())))
                 .isTrue();

@@ -1,6 +1,8 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -28,10 +30,10 @@ public class ResponseSubmitter {
     }
 
     public SubmissionResult submitVpToken(AuthorizationRequest request, String credentialQueryId, String presentation) {
-        String vpToken = objectMapper.writeValueAsString(java.util.Map.of(credentialQueryId, List.of(presentation)));
+        String vpToken = objectMapper.writeValueAsString(Map.of(credentialQueryId, List.of(presentation)));
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         if ("direct_post.jwt".equals(request.responseMode())) {
-            java.util.Map<String, String> parameters = new java.util.LinkedHashMap<>();
+            Map<String, String> parameters = new LinkedHashMap<>();
             if (request.state() != null) {
                 parameters.put("state", request.state());
             }

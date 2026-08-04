@@ -5,6 +5,8 @@ import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 /**
@@ -49,7 +51,7 @@ public class DcqlMatcher {
     private static boolean resolvesInClaims(List<Object> path, Object claims) {
         Object current = claims;
         for (Object step : path) {
-            if (step instanceof String key && current instanceof java.util.Map<?, ?> map) {
+            if (step instanceof String key && current instanceof Map<?, ?> map) {
                 current = map.get(key);
             } else if (step instanceof Number index && current instanceof List<?> list) {
                 int i = index.intValue();
@@ -72,7 +74,7 @@ public class DcqlMatcher {
         }
         return query.claims().stream()
                 .map(DcqlQuery.ClaimQuery::topLevelClaimName)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .distinct()
                 .toList();
     }

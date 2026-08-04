@@ -6,6 +6,7 @@ import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
+import java.io.ByteArrayInputStream;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
@@ -48,7 +49,7 @@ class WalletAttestationTest {
         assertThat(attestation.getHeader().getType().toString()).isEqualTo("oauth-client-attestation+jwt");
 
         X509Certificate leaf = (X509Certificate) CertificateFactory.getInstance("X.509")
-                .generateCertificate(new java.io.ByteArrayInputStream(
+                .generateCertificate(new ByteArrayInputStream(
                         attestation.getHeader().getX509CertChain().getFirst().decode()));
         assertThat(leaf.getSubjectX500Principal())
                 .isEqualTo(pki.walletProviderCertificate().getSubjectX500Principal());

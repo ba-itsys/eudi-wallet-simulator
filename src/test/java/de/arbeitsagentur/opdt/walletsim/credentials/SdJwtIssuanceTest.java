@@ -6,6 +6,7 @@ import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.cert.CertificateFactory;
@@ -107,7 +108,7 @@ class SdJwtIssuanceTest {
 
     private static X509Certificate parseCertificate(CertificateFactory factory, byte[] der) {
         try {
-            return (X509Certificate) factory.generateCertificate(new java.io.ByteArrayInputStream(der));
+            return (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(der));
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

@@ -7,6 +7,7 @@ import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -60,7 +61,7 @@ class VpFlowTest {
     @Test
     void sameDeviceFlowProducesVerifiablePresentationAndRedirects() throws Exception {
         try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
-            java.net.URI authorizeUrl = java.net.URI.create("http://localhost:" + port + "/authorize?client_id="
+            URI authorizeUrl = URI.create("http://localhost:" + port + "/authorize?client_id="
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
                     + "&request_uri="
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
@@ -99,7 +100,7 @@ class VpFlowTest {
     @Test
     void cancelPostsAccessDeniedAndFollowsRedirect() throws Exception {
         try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
-            java.net.URI authorizeUrl = java.net.URI.create("http://localhost:" + port + "/authorize?client_id="
+            URI authorizeUrl = URI.create("http://localhost:" + port + "/authorize?client_id="
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
                     + "&request_uri="
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));

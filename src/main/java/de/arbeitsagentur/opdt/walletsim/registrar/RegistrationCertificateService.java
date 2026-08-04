@@ -12,6 +12,7 @@ import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
+import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -75,7 +76,7 @@ public class RegistrationCertificateService {
         SignedJWT jwt;
         try {
             jwt = SignedJWT.parse(registrationCertificateJwt);
-        } catch (java.text.ParseException e) {
+        } catch (ParseException e) {
             return Optional.of("registration certificate is not a valid JWT");
         }
         try {
