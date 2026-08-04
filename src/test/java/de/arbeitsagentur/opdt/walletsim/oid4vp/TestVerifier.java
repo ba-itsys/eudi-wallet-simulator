@@ -74,6 +74,7 @@ public final class TestVerifier implements AutoCloseable {
     private final String dcqlQueryJson;
     private RequestCustomizer requestCustomizer = claims -> {};
     private com.nimbusds.jose.jwk.ECKey responseEncryptionKey;
+    private String verifierInfoJson;
 
     public TestVerifier(String dcqlQueryJson) throws Exception {
         this.dcqlQueryJson = dcqlQueryJson;
@@ -106,6 +107,12 @@ public final class TestVerifier implements AutoCloseable {
         return this;
     }
 
+    /** Adds a verifier_info claim, e.g. the value from the simulator's registration certificate API. */
+    public TestVerifier withVerifierInfo(String verifierInfoJson) {
+        this.verifierInfoJson = verifierInfoJson;
+        return this;
+    }
+
     /** Switches to direct_post.jwt with an ephemeral encryption key whose kid is the flow state. */
     public TestVerifier withEncryptedResponses() throws Exception {
         this.responseEncryptionKey = new com.nimbusds.jose.jwk.gen.ECKeyGenerator(com.nimbusds.jose.jwk.Curve.P_256)
@@ -119,7 +126,13 @@ public final class TestVerifier implements AutoCloseable {
     }
 
     public String clientId() {
-        return "x509_san_dns:verifier.example.com";
+        try {
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded());
+            return "x509_hash:"
+                    + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public String nonce() {
@@ -170,6 +183,11 @@ public final class TestVerifier implements AutoCloseable {
             claims.put("state", state);
             claims.put("client_metadata", clientMetadata());
             claims.put("dcql_query", new tools.jackson.databind.ObjectMapper().readValue(dcqlQueryJson, Map.class));
+            if (verifierInfoJson != null) {
+                claims.put(
+                        "verifier_info",
+                        new tools.jackson.databind.ObjectMapper().readValue(verifierInfoJson, List.class));
+            }
             requestCustomizer.customize(claims);
 
             JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()

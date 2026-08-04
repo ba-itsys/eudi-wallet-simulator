@@ -89,6 +89,13 @@ class ConformanceModeTest {
     @Test
     void conformantRequestShowsNoWarnings() throws Exception {
         try (var verifier = TestVerifier.pidVerifier()) {
+            String verifierInfo = client().get()
+                    .uri("/api/registration-certificates?client_id={id}", verifier.clientId())
+                    .retrieve()
+                    .body(JsonNode.class)
+                    .get("verifierInfo")
+                    .asText();
+            verifier.withVerifierInfo(verifierInfo);
             ResponseEntity<String> picker =
                     client().get().uri(authorizeUri(verifier)).retrieve().toEntity(String.class);
 
