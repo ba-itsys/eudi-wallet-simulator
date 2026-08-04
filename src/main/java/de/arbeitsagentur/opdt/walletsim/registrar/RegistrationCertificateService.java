@@ -20,7 +20,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 /**
- * Registrar for relying-party registration certificates (BA profile): issues rc-rp+jwt tokens
+ * Registrar for relying-party registration certificates (EUDI): issues rc-rp+jwt tokens
  * signed with the persisted registrar key and validates presented ones against exactly that key,
  * so certificates generated here remain accepted across restarts.
  */
