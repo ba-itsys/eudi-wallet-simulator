@@ -11,7 +11,9 @@
         Web-based wallet simulator for testing OID4VP verifiers. A verifier sends the browser here via its
         wallet link (<code>/authorize?client_id=&hellip;&amp;request_uri=&hellip;</code>). Trust lists are served at
         <code>/trust-lists/credentials</code> and <code>/trust-lists/wallet-providers</code>, the status list at
-        <code>/status-list</code>, revocation via <code>POST /api/credentials/{id}/status</code>.
+        <code>/status-list</code>, revocation via <code>POST /api/credentials/{id}/status</code>. Verifiers need a
+        registration certificate from <code>/api/registration-certificates?client_id=&hellip;</code> for their
+        <code>verifier_info</code>.
     </p>
 
     <h4>Credentials</h4>

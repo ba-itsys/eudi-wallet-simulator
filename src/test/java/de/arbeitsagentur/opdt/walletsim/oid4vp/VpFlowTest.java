@@ -96,6 +96,30 @@ class VpFlowTest {
         }
     }
 
+    @Test
+    void cancelPostsAccessDeniedAndFollowsRedirect() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
+            java.net.URI authorizeUrl = java.net.URI.create("http://localhost:" + port + "/authorize?client_id="
+                    + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
+                    + "&request_uri="
+                    + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
+            String flowState = extractHiddenField(
+                    client().get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
+
+            ResponseEntity<String> cancel = client().post()
+                    .uri("/authorize/cancel")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .toEntity(String.class);
+
+            assertThat(cancel.getStatusCode().is3xxRedirection()).isTrue();
+            TestVerifier.ReceivedResponse response = verifier.awaitResponse();
+            assertThat(response.formParameters().get("error")).isEqualTo("access_denied");
+            assertThat(response.formParameters().get("state")).isEqualTo(verifier.state());
+        }
+    }
+
     private void verifyPresentation(String presentation, TestVerifier verifier) throws Exception {
         String[] parts = presentation.split("~");
         assertThat(parts.length).as("issuer JWT, disclosures, KB-JWT").isGreaterThanOrEqualTo(3);

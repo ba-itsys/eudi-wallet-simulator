@@ -20,7 +20,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 
 /**
- * BA profile: verifier_info must carry a registration certificate this wallet's registrar
+ * EUDI: verifier_info must carry a registration certificate this wallet's registrar
  * accepts. The registrar issues rc-rp+jwt certificates via the API; requests without or with
  * foreign registration certificates get conformance findings.
  */

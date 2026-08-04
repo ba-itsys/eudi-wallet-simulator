@@ -16,7 +16,7 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
- * Collects verifier conformance findings against OpenID4VP 1.0 plus the BA profile requirement
+ * Collects verifier conformance findings against OpenID4VP 1.0 plus the EUDI requirement
  * that verifier_info carries a registration certificate accepted by this wallet's registrar.
  * Findings are always collected in full; whether they warn or refuse is the caller's mode
  * decision (ADR: debug-by-default validation).
@@ -70,8 +70,8 @@ public class RequestObjectValidator {
             return;
         }
         if (verifierInfo == null) {
-            findings.add(new Finding(
-                    "verifier_info with a registration certificate is required (BA profile, OID4VP 1.0 §5.11)"));
+            findings.add(
+                    new Finding("verifier_info with a registration certificate is required (EUDI, OID4VP 1.0 §5.11)"));
             return;
         }
         if (!(verifierInfo instanceof List<?> attestations) || attestations.isEmpty()) {
