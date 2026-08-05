@@ -17,14 +17,15 @@ fail() {
 
 echo "1/6 Opening Keycloak account console login..."
 LOGIN_PAGE=$(curl -sSL -c "$COOKIES" -b "$COOKIES" \
-  "${KEYCLOAK_URL}/realms/wallet-demo/protocol/openid-connect/auth?client_id=account-console&redirect_uri=${KEYCLOAK_URL}/realms/wallet-demo/account/&response_type=code&scope=openid&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256")
-IDP_LINK=$(printf '%s' "$LOGIN_PAGE" | grep -o 'id="social-oid4vp"[^>]*' | grep -o 'href="[^"]*"' | head -1 | sed 's/href="//;s/"$//' | sed 's/&amp;/\&/g') \
-  || fail "no social-oid4vp link on the login page"
+  "${KEYCLOAK_URL}/realms/wallet-demo/protocol/openid-connect/auth?client_id=account-console&redirect_uri=${KEYCLOAK_URL}/realms/wallet-demo/account/&response_type=code&scope=openid&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256" \
+  | tr '\n' ' ')
+IDP_LINK=$(printf '%s' "$LOGIN_PAGE" | grep -o 'id="social-oid4vp"[^>]*' | grep -o 'href="[^"]*"' | head -1 | sed 's/href="//;s/"$//' | sed 's/&amp;/\&/g')
+[ -n "$IDP_LINK" ] || fail "no social-oid4vp link on the login page"
 
 echo "2/6 Following the wallet identity provider..."
-WALLET_PAGE=$(curl -sSL -c "$COOKIES" -b "$COOKIES" "${KEYCLOAK_URL}${IDP_LINK}")
-WALLET_URL=$(printf '%s' "$WALLET_PAGE" | grep -o 'id="oid4vp-open-wallet"[^>]*' | grep -o 'href="[^"]*"' | head -1 | sed 's/href="//;s/"$//' | sed 's/&amp;/\&/g') \
-  || fail "no oid4vp-open-wallet link on the wallet page"
+WALLET_PAGE=$(curl -sSL -c "$COOKIES" -b "$COOKIES" "${KEYCLOAK_URL}${IDP_LINK}" | tr '\n' ' ')
+WALLET_URL=$(printf '%s' "$WALLET_PAGE" | grep -o 'id="oid4vp-open-wallet"[^>]*' | grep -o 'href="[^"]*"' | head -1 | sed 's/href="//;s/"$//' | sed 's/&amp;/\&/g')
+[ -n "$WALLET_URL" ] || fail "no oid4vp-open-wallet link on the wallet page"
 case "$WALLET_URL" in
   "${SIMULATOR_URL}/authorize"*) ;;
   *) fail "wallet URL does not point at the simulator: $WALLET_URL" ;;

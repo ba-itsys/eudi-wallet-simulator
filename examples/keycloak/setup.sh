@@ -27,12 +27,26 @@ if ! curl -sf "${SIMULATOR_URL}/livez" >/dev/null 2>&1; then
 fi
 
 if [ ! -f "${EXAMPLE_DIR}/verifier-key.pem" ]; then
-  echo "Generating verifier signing certificate..."
+  echo "Generating verifier CA and CA-issued signing certificate (HAIP)..."
+  openssl ecparam -name prime256v1 -genkey -noout -out "${EXAMPLE_DIR}/verifier-ca-key.pem"
+  openssl req -new -x509 -key "${EXAMPLE_DIR}/verifier-ca-key.pem" \
+    -subj "/CN=Wallet Simulator Example Verifier CA" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign" \
+    -days 365 -out "${EXAMPLE_DIR}/verifier-ca-cert.pem"
   openssl ecparam -name prime256v1 -genkey -noout -out "${EXAMPLE_DIR}/verifier-key.pem"
-  openssl req -new -x509 -key "${EXAMPLE_DIR}/verifier-key.pem" \
-    -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost" \
-    -days 365 -out "${EXAMPLE_DIR}/verifier-cert.pem"
-  cat "${EXAMPLE_DIR}/verifier-cert.pem" "${EXAMPLE_DIR}/verifier-key.pem" > "${EXAMPLE_DIR}/verifier-combined.pem"
+  openssl req -new -key "${EXAMPLE_DIR}/verifier-key.pem" -subj "/CN=localhost" \
+    -out "${EXAMPLE_DIR}/verifier.csr"
+  printf 'subjectAltName=DNS:localhost\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\n' \
+    > "${EXAMPLE_DIR}/verifier-ext.cnf"
+  openssl x509 -req -in "${EXAMPLE_DIR}/verifier.csr" \
+    -CA "${EXAMPLE_DIR}/verifier-ca-cert.pem" -CAkey "${EXAMPLE_DIR}/verifier-ca-key.pem" \
+    -CAcreateserial -days 365 -extfile "${EXAMPLE_DIR}/verifier-ext.cnf" \
+    -out "${EXAMPLE_DIR}/verifier-cert.pem" 2>/dev/null
+  rm -f "${EXAMPLE_DIR}/verifier.csr" "${EXAMPLE_DIR}/verifier-ext.cnf" "${EXAMPLE_DIR}/verifier-ca-cert.srl"
+  # the extension expects a PKCS#8 "PRIVATE KEY" block in the combined PEM
+  openssl pkcs8 -topk8 -nocrypt -in "${EXAMPLE_DIR}/verifier-key.pem" -out "${EXAMPLE_DIR}/verifier-key-pkcs8.pem"
+  cat "${EXAMPLE_DIR}/verifier-cert.pem" "${EXAMPLE_DIR}/verifier-ca-cert.pem" "${EXAMPLE_DIR}/verifier-key-pkcs8.pem" \
+    > "${EXAMPLE_DIR}/verifier-combined.pem"
 fi
 
 CERT_HASH=$(openssl x509 -in "${EXAMPLE_DIR}/verifier-cert.pem" -outform DER \
