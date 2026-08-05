@@ -41,7 +41,7 @@ class AdHocCredentialTest {
     }
 
     @Test
-    void editClonesSelectedCredentialAsTemplate() {
+    void editClonesSelectedCredentialAsTemplateWithPerClaimFields() {
         ResponseEntity<String> editForm = client().post()
                 .uri("/credentials/edit")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -50,8 +50,12 @@ class AdHocCredentialTest {
                 .toEntity(String.class);
 
         assertThat(editForm.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(editForm.getBody()).contains("family_name");
+        assertThat(editForm.getBody())
+                .as("every claim renders as its own input with a stable id")
+                .contains("id=\"claim-family_name\"");
+        assertThat(editForm.getBody()).contains("name=\"claimValues[family_name]\"");
         assertThat(editForm.getBody()).contains("Neumann");
+        assertThat(editForm.getBody()).contains("id=\"new-claim-name\"");
         assertThat(editForm.getBody())
                 .as("clone gets a fresh id suggestion, not the original id")
                 .doesNotContain("value=\"pid-maria-neumann\"");
@@ -59,17 +63,16 @@ class AdHocCredentialTest {
 
     @Test
     void savingAdHocCredentialIssuesSignedSdJwt() {
-        String claimsJson =
-                """
-                {"family_name": "Custom", "given_name": "Ada", "birthdate": "1990-01-01"}
-                """;
         ResponseEntity<String> saved = client().post()
                 .uri("/credentials/save")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body("id=custom-ada&name=" + URLEncoder.encode("PID Ada Custom", StandardCharsets.UTF_8)
                         + "&vct=" + URLEncoder.encode("urn:eudi:pid:1", StandardCharsets.UTF_8)
-                        + "&validityDays=30&claimsJson="
-                        + URLEncoder.encode(claimsJson, StandardCharsets.UTF_8))
+                        + "&validityDays=30"
+                        + "&claimValues%5Bfamily_name%5D=Custom"
+                        + "&claimValues%5Bgiven_name%5D=Ada"
+                        + "&claimValues%5Bbirthdate%5D=1990-01-01"
+                        + "&newClaimName=nickname&newClaimValue=Ady")
                 .retrieve()
                 .toEntity(String.class);
 
@@ -80,21 +83,23 @@ class AdHocCredentialTest {
         assertThat(credential.get("name").asText()).isEqualTo("PID Ada Custom");
         assertThat(credential.get("source").asText()).isEqualTo("AD_HOC");
         assertThat(credential.get("claims").get("family_name").asText()).isEqualTo("Custom");
+        assertThat(credential.get("claims").get("nickname").asText())
+                .as("the add-claim row contributes a claim")
+                .isEqualTo("Ady");
         assertThat(credential.get("sdJwt").asText()).contains("~");
     }
 
     @Test
-    void invalidClaimsJsonRedisplaysFormWithError() {
+    void emptyClaimsRedisplayFormWithError() {
         ResponseEntity<String> saved = client().post()
                 .uri("/credentials/save")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body("id=broken&name=Broken&vct=urn:eudi:pid:1&validityDays=30&claimsJson="
-                        + URLEncoder.encode("{not json", StandardCharsets.UTF_8))
+                .body("id=broken&name=Broken&vct=urn:eudi:pid:1&validityDays=30")
                 .retrieve()
                 .toEntity(String.class);
 
         assertThat(saved.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(saved.getBody()).contains("is-invalid");
+        assertThat(saved.getBody()).contains("at least one claim");
 
         ResponseEntity<String> lookup =
                 client().get().uri("/api/credentials/broken").retrieve().toEntity(String.class);

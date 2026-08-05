@@ -1,13 +1,21 @@
 package de.arbeitsagentur.opdt.walletsim.web;
 
-/** Form backing bean for creating or cloning a credential in the UI. */
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Form backing bean for creating or cloning a credential in the UI. Claims are edited as one
+ * field per claim; values keep their JSON type, plain text is treated as a string.
+ */
 public class CredentialEditForm {
 
     private String id;
     private String name;
     private String vct;
     private int validityDays = 365;
-    private String claimsJson;
+    private Map<String, String> claimValues = new LinkedHashMap<>();
+    private String newClaimName;
+    private String newClaimValue;
     private String flowState;
 
     public String getId() {
@@ -42,12 +50,28 @@ public class CredentialEditForm {
         this.validityDays = validityDays;
     }
 
-    public String getClaimsJson() {
-        return claimsJson;
+    public Map<String, String> getClaimValues() {
+        return claimValues;
     }
 
-    public void setClaimsJson(String claimsJson) {
-        this.claimsJson = claimsJson;
+    public void setClaimValues(Map<String, String> claimValues) {
+        this.claimValues = claimValues;
+    }
+
+    public String getNewClaimName() {
+        return newClaimName;
+    }
+
+    public void setNewClaimName(String newClaimName) {
+        this.newClaimName = newClaimName;
+    }
+
+    public String getNewClaimValue() {
+        return newClaimValue;
+    }
+
+    public void setNewClaimValue(String newClaimValue) {
+        this.newClaimValue = newClaimValue;
     }
 
     public String getFlowState() {
