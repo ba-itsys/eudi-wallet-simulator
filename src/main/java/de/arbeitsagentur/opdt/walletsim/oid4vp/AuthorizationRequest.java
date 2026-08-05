@@ -4,7 +4,7 @@ import com.nimbusds.jwt.SignedJWT;
 import java.text.ParseException;
 import java.util.Map;
 
-/** Parsed OID4VP authorization request as carried in a signed request object. */
+// Parsed OID4VP authorization request as carried in a signed request object.
 public record AuthorizationRequest(
         String rawRequestObject,
         String clientId,

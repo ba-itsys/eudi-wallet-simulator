@@ -49,7 +49,7 @@ public class CredentialStore {
         statusByIndex.put(credential.statusIndex(), status);
     }
 
-    /** Status list values by index, for building the status list token. */
+    // Status list values by index, for building the status list token.
     public synchronized Map<Integer, Integer> statusValues() {
         return Map.copyOf(statusByIndex);
     }

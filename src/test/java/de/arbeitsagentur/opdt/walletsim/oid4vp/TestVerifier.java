@@ -66,7 +66,7 @@ public final class TestVerifier implements AutoCloseable {
 
     public record ReceivedResponse(Map<String, String> formParameters) {}
 
-    /** Mutates the request object claims before signing, to simulate non-conformant verifiers. */
+    // Mutates the request object claims before signing, to simulate non-conformant verifiers.
     @FunctionalInterface
     public interface RequestCustomizer {
         void customize(Map<String, Object> claims);
@@ -114,13 +114,13 @@ public final class TestVerifier implements AutoCloseable {
         return this;
     }
 
-    /** Adds a verifier_info claim, e.g. the value from the simulator's registration certificate API. */
+    // Adds a verifier_info claim, e.g. the value from the simulator's registration certificate API.
     public TestVerifier withVerifierInfo(String verifierInfoJson) {
         this.verifierInfoJson = verifierInfoJson;
         return this;
     }
 
-    /** Switches to direct_post.jwt with an ephemeral encryption key whose kid is the flow state. */
+    // Switches to direct_post.jwt with an ephemeral encryption key whose kid is the flow state.
     public TestVerifier withEncryptedResponses() throws Exception {
         this.responseEncryptionKey =
                 new ECKeyGenerator(Curve.P_256).keyID(state).generate();

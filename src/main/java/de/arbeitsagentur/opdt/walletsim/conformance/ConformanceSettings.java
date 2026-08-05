@@ -3,7 +3,7 @@ package de.arbeitsagentur.opdt.walletsim.conformance;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/** Runtime-switchable conformance mode; the startup value comes from {@code app.conformance.mode}. */
+// Runtime-switchable conformance mode; the startup value comes from app.conformance.mode.
 @Component
 public class ConformanceSettings {
 

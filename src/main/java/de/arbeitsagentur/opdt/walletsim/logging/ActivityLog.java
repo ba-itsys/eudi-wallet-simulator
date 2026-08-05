@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/** In-memory activity log of protocol interactions, capped to the most recent entries. */
+// In-memory activity log of protocol interactions, capped to the most recent entries.
 @Component
 public class ActivityLog {
 

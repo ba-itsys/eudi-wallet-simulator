@@ -40,7 +40,7 @@ public class RegistrationCertificateService {
         this.urls = urls;
     }
 
-    /** Issues a registration certificate for the given relying party client_id. */
+    // Issues a registration certificate for the given relying party client_id.
     public String issue(String clientId, String purpose) {
         try {
             Instant now = Instant.now();

@@ -3,7 +3,7 @@ package de.arbeitsagentur.opdt.walletsim.oid4vp;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-/** Retrieves the verifier's request object from its request_uri. */
+// Retrieves the verifier's request object from its request_uri.
 @Component
 public class RequestObjectClient {
 

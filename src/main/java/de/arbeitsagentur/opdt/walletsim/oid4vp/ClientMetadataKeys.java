@@ -4,12 +4,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** Extracts usable response-encryption keys from a verifier's client_metadata. */
+// Extracts usable response-encryption keys from a verifier's client_metadata.
 public final class ClientMetadataKeys {
 
     private ClientMetadataKeys() {}
 
-    /** Usable EC encryption keys from client_metadata.jwks, in declaration order. */
+    // Usable EC encryption keys from client_metadata.jwks, in declaration order.
     @SuppressWarnings("unchecked")
     public static List<Map<String, Object>> encryptionKeys(Map<String, Object> clientMetadata) {
         if (clientMetadata == null
