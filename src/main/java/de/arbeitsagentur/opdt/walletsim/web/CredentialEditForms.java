@@ -3,23 +3,25 @@ package de.arbeitsagentur.opdt.walletsim.web;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialDefinition;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.SerializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Shared mechanics of the credential edit form: cloning an existing credential as template,
  * building a fresh template, validating the submitted form, and turning it into a definition.
+ *
+ * <p>Claim values round-trip as text: strings render raw, everything else renders as JSON. On
+ * submit a value is parsed as JSON when possible and kept as a string otherwise, so a postal
+ * code like {@code "10409"} renders quoted and survives as a string.
  */
 @Component
 public class CredentialEditForms {
 
     private final CredentialStore store;
-    private final ObjectMapper objectMapper =
-            JsonMapper.builder().enable(SerializationFeature.INDENT_OUTPUT).build();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CredentialEditForms(CredentialStore store) {
         this.store = store;
@@ -32,7 +34,7 @@ public class CredentialEditForms {
         form.setId(uniqueIdFrom(templateCredentialId));
         form.setName(template.name() + " (copy)");
         form.setVct(template.vct());
-        form.setClaimsJson(objectMapper.writeValueAsString(template.claims()));
+        form.setClaimValues(renderClaimValues(template.claims()));
         return form;
     }
 
@@ -41,8 +43,8 @@ public class CredentialEditForms {
         form.setId("credential-" + shortRandom());
         form.setName("New credential");
         form.setVct("urn:eudi:pid:1");
-        form.setClaimsJson(objectMapper.writeValueAsString(
-                Map.of("family_name", "Doe", "given_name", "Jane", "birthdate", "1990-01-01")));
+        form.setClaimValues(
+                renderClaimValues(Map.of("family_name", "Doe", "given_name", "Jane", "birthdate", "1990-01-01")));
         return form;
     }
 
@@ -63,12 +65,8 @@ public class CredentialEditForms {
         if (form.getValidityDays() <= 0) {
             return "Validity must be at least one day.";
         }
-        try {
-            if (parseClaims(form.getClaimsJson()).isEmpty()) {
-                return "Claims must be a non-empty JSON object.";
-            }
-        } catch (Exception e) {
-            return "Claims are not a valid JSON object.";
+        if (parseClaims(form).isEmpty()) {
+            return "The credential needs at least one claim.";
         }
         return null;
     }
@@ -79,12 +77,55 @@ public class CredentialEditForms {
                 form.getName().trim(),
                 form.getVct().trim(),
                 form.getValidityDays(),
-                parseClaims(form.getClaimsJson()));
+                parseClaims(form));
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseClaims(String claimsJson) {
-        return objectMapper.readValue(claimsJson, Map.class);
+    private Map<String, Object> parseClaims(CredentialEditForm form) {
+        Map<String, Object> claims = new LinkedHashMap<>();
+        form.getClaimValues().forEach((claimName, value) -> {
+            if (value != null && !value.isBlank()) {
+                claims.put(claimName, parseClaimValue(value.trim()));
+            }
+        });
+        if (form.getNewClaimName() != null
+                && !form.getNewClaimName().isBlank()
+                && form.getNewClaimValue() != null
+                && !form.getNewClaimValue().isBlank()) {
+            claims.put(
+                    form.getNewClaimName().trim(),
+                    parseClaimValue(form.getNewClaimValue().trim()));
+        }
+        return claims;
+    }
+
+    private Object parseClaimValue(String value) {
+        try {
+            return objectMapper.readValue(value, Object.class);
+        } catch (Exception e) {
+            return value;
+        }
+    }
+
+    private Map<String, String> renderClaimValues(Map<String, Object> claims) {
+        Map<String, String> values = new LinkedHashMap<>();
+        claims.forEach((claimName, value) -> values.put(claimName, renderClaimValue(value)));
+        return values;
+    }
+
+    private String renderClaimValue(Object value) {
+        if (value instanceof String text && !parsesAsJson(text)) {
+            return text;
+        }
+        return objectMapper.writeValueAsString(value);
+    }
+
+    private boolean parsesAsJson(String text) {
+        try {
+            objectMapper.readValue(text, Object.class);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private String uniqueIdFrom(String templateId) {

@@ -64,19 +64,19 @@ class EditDuringFlowTest {
                     .retrieve()
                     .toEntity(String.class);
             assertThat(editForm.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(editForm.getBody()).contains("id=\"claim-family_name\"");
             assertThat(editForm.getBody()).contains("Neumann");
             assertThat(editForm.getBody()).contains("name=\"flowState\"");
 
-            String claimsJson =
-                    """
-                    {"family_name": "Edited-Neumann", "given_name": "Maria", "birthdate": "1964-08-12"}
-                    """;
             ResponseEntity<String> save = client().post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("id=pid-maria-edited&name=" + URLEncoder.encode("PID Maria (edited)", StandardCharsets.UTF_8)
                             + "&vct=" + URLEncoder.encode("urn:eudi:pid:1", StandardCharsets.UTF_8)
-                            + "&validityDays=30&claimsJson=" + URLEncoder.encode(claimsJson, StandardCharsets.UTF_8)
+                            + "&validityDays=30"
+                            + "&claimValues%5Bfamily_name%5D=Edited-Neumann"
+                            + "&claimValues%5Bgiven_name%5D=Maria"
+                            + "&claimValues%5Bbirthdate%5D=1964-08-12"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);
@@ -118,8 +118,8 @@ class EditDuringFlowTest {
             ResponseEntity<String> save = client().post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("id=pid-no-family-name&name=Broken&vct=urn:eudi:pid:1&validityDays=30&claimsJson="
-                            + URLEncoder.encode("{\"given_name\": \"OnlyGivenName\"}", StandardCharsets.UTF_8)
+                    .body("id=pid-no-family-name&name=Broken&vct=urn:eudi:pid:1&validityDays=30"
+                            + "&claimValues%5Bgiven_name%5D=OnlyGivenName"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);

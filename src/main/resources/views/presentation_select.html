@@ -32,10 +32,10 @@
                 <div class="card h-100" data-th-attr="data-credential-id=${match.credential.id}">
                     <div class="card-body form-check">
                         <input class="form-check-input" type="radio" name="credentialId"
-                               data-th-id="'credential_' + ${iterStat.count}"
+                               data-th-id="'select-' + ${match.credential.id}"
                                data-th-value="${match.credential.id}"
                                data-th-checked="${iterStat.first}"/>
-                        <label class="form-check-label w-100" data-th-for="'credential_' + ${iterStat.count}">
+                        <label class="form-check-label w-100" data-th-for="'select-' + ${match.credential.id}">
                             <strong data-th-text="${match.credential.name}">Credential</strong><br/>
                             <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
                             <small>Disclosed claims:
@@ -48,12 +48,12 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width:15rem"
+        <button type="submit" class="btn btn-primary" id="present-credential" style="width:15rem"
                 data-th-disabled="${#lists.isEmpty(matches)}">Present credential</button>
-        <button type="submit" class="btn btn-outline-primary" style="width:15rem"
+        <button type="submit" class="btn btn-outline-primary" id="edit-and-present" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/edit}"
                 data-th-disabled="${#lists.isEmpty(matches)}">Edit &amp; present (optional)</button>
-        <button type="submit" class="btn btn-secondary" style="width:15rem"
+        <button type="submit" class="btn btn-secondary" id="cancel-presentation" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>
     </form>
 </div>
