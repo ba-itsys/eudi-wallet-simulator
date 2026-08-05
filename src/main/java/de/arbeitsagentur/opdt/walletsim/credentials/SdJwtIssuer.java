@@ -4,6 +4,7 @@ import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
+import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -44,7 +45,7 @@ public class SdJwtIssuer {
         this.urls = urls;
     }
 
-    public String issue(CredentialDefinition definition, int statusIndex) {
+    public String issue(CredentialDefinition definition, int statusIndex, ECKey holderKey) {
         try {
             List<String> disclosures = new ArrayList<>();
             List<String> digests = new ArrayList<>();
@@ -63,7 +64,7 @@ public class SdJwtIssuer {
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(definition.validityDays(), ChronoUnit.DAYS)))
                     .claim("vct", definition.vct())
-                    .claim("cnf", Map.of("jwk", pki.holderKey().toPublicJWK().toJSONObject()))
+                    .claim("cnf", Map.of("jwk", holderKey.toPublicJWK().toJSONObject()))
                     .claim("status", Map.of("status_list", Map.of("uri", urls.statusListUri(), "idx", statusIndex)))
                     .claim("_sd", digests)
                     .claim("_sd_alg", "sha-256")

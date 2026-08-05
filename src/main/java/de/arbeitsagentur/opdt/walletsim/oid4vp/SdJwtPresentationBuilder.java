@@ -8,7 +8,6 @@ import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
-import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -19,17 +18,13 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Builds an SD-JWT VP: the issuer JWT with only the requested disclosures, completed by a KB-JWT
- * binding the presentation to the verifier's client_id and nonce via sd_hash.
+ * signed with the credential's own holder binding key, tying the presentation to the verifier's
+ * client_id and nonce via sd_hash.
  */
 @Component
 public class SdJwtPresentationBuilder {
 
-    private final SimulatorPki pki;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    public SdJwtPresentationBuilder(SimulatorPki pki) {
-        this.pki = pki;
-    }
 
     public String build(StoredCredential credential, List<String> claimsToDisclose, String audience, String nonce) {
         try {
@@ -56,7 +51,7 @@ public class SdJwtPresentationBuilder {
                             .type(new JOSEObjectType("kb+jwt"))
                             .build(),
                     claims);
-            kbJwt.sign(new ECDSASigner(pki.holderKey()));
+            kbJwt.sign(new ECDSASigner(credential.holderKey()));
 
             return presentation.append(kbJwt.serialize()).toString();
         } catch (Exception e) {

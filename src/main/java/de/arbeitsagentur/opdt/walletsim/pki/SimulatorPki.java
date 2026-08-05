@@ -119,9 +119,23 @@ public class SimulatorPki {
         return registrarKeyPair.getPrivate();
     }
 
-    /** Holder key pair used for credential binding (cnf.jwk) and key-binding JWTs. */
+    /** The persisted wallet-instance key, used for wallet attestations and their PoP JWTs. */
     public ECKey holderKey() {
         return holderKey;
+    }
+
+    /** Fresh P-256 binding key for a single credential (cnf.jwk); never persisted. */
+    public ECKey generateCredentialBindingKey() {
+        try {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
+            generator.initialize(new ECGenParameterSpec("secp256r1"));
+            KeyPair keyPair = generator.generateKeyPair();
+            return new ECKey.Builder(Curve.P_256, (ECPublicKey) keyPair.getPublic())
+                    .privateKey(keyPair.getPrivate())
+                    .build();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to generate credential binding key", e);
+        }
     }
 
     private KeyPair loadOrCreateKeyPair(String name) throws Exception {

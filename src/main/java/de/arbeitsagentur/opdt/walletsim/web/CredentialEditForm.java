@@ -8,6 +8,7 @@ public class CredentialEditForm {
     private String vct;
     private int validityDays = 365;
     private String claimsJson;
+    private String flowState;
 
     public String getId() {
         return id;
@@ -47,5 +48,13 @@ public class CredentialEditForm {
 
     public void setClaimsJson(String claimsJson) {
         this.claimsJson = claimsJson;
+    }
+
+    public String getFlowState() {
+        return flowState;
+    }
+
+    public void setFlowState(String flowState) {
+        this.flowState = flowState;
     }
 }
