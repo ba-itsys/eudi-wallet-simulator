@@ -40,6 +40,26 @@ credential gets a fresh holder binding key.
 Conformance warnings appear on the picker when the verifier request violates OID4VP or HAIP. In
 `strict` mode such requests are refused instead.
 
+## Automating the UI
+
+The UI is server rendered without JavaScript and every interactive element has a stable id.
+Playwright and similar frameworks can rely on these selectors.
+
+| Selector | Element |
+|---|---|
+| `[data-credential-id="<id>"]` | Credential card on the home page and the picker |
+| `#select-<id>` | Radio button that selects a credential |
+| `#present-credential`, `#edit-and-present`, `#cancel-presentation` | Actions on the picker |
+| `#edit-as-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
+| `#credential-id`, `#credential-name`, `#credential-vct`, `#validity-days` | Edit form header fields |
+| `#claim-<name>` | One input per claim on the edit form |
+| `#new-claim-name`, `#new-claim-value`, `#add-claim` | Add a claim on the edit form |
+| `#issue-credential`, `#cancel-edit` | Edit form actions |
+| `#conformance-warnings`, `#form-error` | Warning and error containers |
+
+A full flow needs no fixed waits. Each action is a plain form post and the next page contains the
+selectors above.
+
 ## Configuration
 
 | Property | Default | Purpose |

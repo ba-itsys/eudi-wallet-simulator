@@ -3,7 +3,7 @@ package de.arbeitsagentur.opdt.walletsim.api;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import java.util.Map;
 
-/** JSON shape of a credential in the management API. */
+// JSON shape of a credential in the management API.
 public record CredentialResponse(
         String id,
         String name,

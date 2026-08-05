@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Revocation API: set or read the status list value of a single credential. */
+// Revocation API: set or read the status list value of a single credential.
 @RestController
 @RequestMapping("/api/credentials/{id}/status")
 public class CredentialStatusApiController {

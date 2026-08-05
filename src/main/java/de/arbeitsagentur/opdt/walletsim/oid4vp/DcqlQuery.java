@@ -3,14 +3,14 @@ package de.arbeitsagentur.opdt.walletsim.oid4vp;
 import java.util.List;
 import java.util.Map;
 
-/** Typed view of the DCQL query subset the simulator evaluates. */
+// Typed view of the DCQL query subset the simulator evaluates.
 public record DcqlQuery(List<CredentialQuery> credentials) {
 
     public record CredentialQuery(String id, String format, List<String> vctValues, List<ClaimQuery> claims) {}
 
     public record ClaimQuery(List<Object> path) {
 
-        /** First path element; the top-level claim name deciding which disclosure to release. */
+        // First path element; the top-level claim name deciding which disclosure to release.
         public String topLevelClaimName() {
             return path.isEmpty() ? null : String.valueOf(path.getFirst());
         }

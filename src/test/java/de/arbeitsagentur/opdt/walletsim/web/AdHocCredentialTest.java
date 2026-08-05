@@ -90,6 +90,48 @@ class AdHocCredentialTest {
     }
 
     @Test
+    void addClaimButtonAddsAFieldWithoutIssuing() {
+        ResponseEntity<String> redisplayed = client().post()
+                .uri("/credentials/save")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("id=multi-add&name=Multi&vct=urn:eudi:pid:1&validityDays=30"
+                        + "&claimValues%5Bfamily_name%5D=Custom"
+                        + "&newClaimName=nickname&newClaimValue=Ady&action=add-claim")
+                .retrieve()
+                .toEntity(String.class);
+
+        assertThat(redisplayed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(redisplayed.getBody())
+                .as("the new claim becomes a regular field")
+                .contains("id=\"claim-nickname\"");
+        assertThat(redisplayed.getBody())
+                .as("the add row is cleared for the next claim")
+                .doesNotContain("value=\"nickname\"");
+
+        ResponseEntity<String> lookup =
+                client().get().uri("/api/credentials/multi-add").retrieve().toEntity(String.class);
+        assertThat(lookup.getStatusCode()).as("add-claim does not issue").isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void emptyingAFieldRemovesTheClaim() {
+        ResponseEntity<String> saved = client().post()
+                .uri("/credentials/save")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("id=no-birthdate&name=NoBirthdate&vct=urn:eudi:pid:1&validityDays=30"
+                        + "&claimValues%5Bfamily_name%5D=Kept"
+                        + "&claimValues%5Bbirthdate%5D=")
+                .retrieve()
+                .toEntity(String.class);
+        assertThat(saved.getStatusCode().is3xxRedirection()).isTrue();
+
+        JsonNode credential =
+                client().get().uri("/api/credentials/no-birthdate").retrieve().body(JsonNode.class);
+        assertThat(credential.get("claims").hasNonNull("family_name")).isTrue();
+        assertThat(credential.get("claims").has("birthdate")).isFalse();
+    }
+
+    @Test
     void emptyClaimsRedisplayFormWithError() {
         ResponseEntity<String> saved = client().post()
                 .uri("/credentials/save")

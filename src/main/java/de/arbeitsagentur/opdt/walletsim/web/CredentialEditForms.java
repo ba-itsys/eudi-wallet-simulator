@@ -48,7 +48,21 @@ public class CredentialEditForms {
         return form;
     }
 
-    /** The validation violation for the submitted form, or null when it can be issued. */
+    // Moves the add-claim row into a regular claim field and clears the row.
+    public void addNewClaim(CredentialEditForm form) {
+        if (form.getNewClaimName() != null && !form.getNewClaimName().isBlank()) {
+            form.getClaimValues()
+                    .put(
+                            form.getNewClaimName().trim(),
+                            form.getNewClaimValue() == null
+                                    ? ""
+                                    : form.getNewClaimValue().trim());
+            form.setNewClaimName(null);
+            form.setNewClaimValue(null);
+        }
+    }
+
+    // The validation violation for the submitted form, or null when it can be issued.
     public String validationError(CredentialEditForm form) {
         if (form.getId() == null || form.getId().isBlank()) {
             return "Credential id is required.";

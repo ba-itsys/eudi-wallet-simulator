@@ -50,7 +50,14 @@ public class CredentialUiController {
     }
 
     @PostMapping("/credentials/save")
-    public String save(@ModelAttribute("form") CredentialEditForm form, Model model) {
+    public String save(
+            @ModelAttribute("form") CredentialEditForm form,
+            @RequestParam(name = "action", required = false) String action,
+            Model model) {
+        if ("add-claim".equals(action)) {
+            editForms.addNewClaim(form);
+            return editView(form, model);
+        }
         String error = editForms.validationError(form);
         if (error != null) {
             model.addAttribute("formError", error);

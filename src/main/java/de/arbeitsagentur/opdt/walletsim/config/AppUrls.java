@@ -3,7 +3,7 @@ package de.arbeitsagentur.opdt.walletsim.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/** External URLs of the simulator as embedded into issued tokens and API responses. */
+// External URLs of the simulator as embedded into issued tokens and API responses.
 @Component
 public class AppUrls {
 

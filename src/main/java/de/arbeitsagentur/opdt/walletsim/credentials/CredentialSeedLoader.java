@@ -11,7 +11,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
 
-/** Seeds the credential store from the YAML file configured via {@code app.resources.credentials}. */
+// Seeds the credential store from the YAML file configured via app.resources.credentials.
 @Component
 public class CredentialSeedLoader implements ApplicationRunner {
 

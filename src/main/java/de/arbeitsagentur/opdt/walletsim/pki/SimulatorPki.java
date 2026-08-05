@@ -119,12 +119,12 @@ public class SimulatorPki {
         return registrarKeyPair.getPrivate();
     }
 
-    /** The persisted wallet-instance key, used for wallet attestations and their PoP JWTs. */
+    // The persisted wallet-instance key, used for wallet attestations and their PoP JWTs.
     public ECKey holderKey() {
         return holderKey;
     }
 
-    /** Fresh P-256 binding key for a single credential (cnf.jwk); never persisted. */
+    // Fresh P-256 binding key for a single credential (cnf.jwk); never persisted.
     public ECKey generateCredentialBindingKey() {
         try {
             KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");

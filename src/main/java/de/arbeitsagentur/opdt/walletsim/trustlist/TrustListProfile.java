@@ -1,6 +1,6 @@
 package de.arbeitsagentur.opdt.walletsim.trustlist;
 
-/** The two ETSI TS 119 602 list profiles the simulator publishes. */
+// The two ETSI TS 119 602 list profiles the simulator publishes.
 public enum TrustListProfile {
     CREDENTIALS(
             "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList",
