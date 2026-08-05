@@ -50,6 +50,9 @@
 
         <button type="submit" class="btn btn-primary" style="width:15rem"
                 data-th-disabled="${#lists.isEmpty(matches)}">Present credential</button>
+        <button type="submit" class="btn btn-outline-primary" style="width:15rem"
+                data-th-formaction="@{__${basepath}__/authorize/edit}"
+                data-th-disabled="${#lists.isEmpty(matches)}">Edit &amp; present (optional)</button>
         <button type="submit" class="btn btn-secondary" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>
     </form>

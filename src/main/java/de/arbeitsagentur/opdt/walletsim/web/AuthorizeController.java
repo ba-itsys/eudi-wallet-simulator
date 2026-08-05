@@ -4,6 +4,8 @@ import de.arbeitsagentur.opdt.walletsim.conformance.ConformanceSettings;
 import de.arbeitsagentur.opdt.walletsim.conformance.Finding;
 import de.arbeitsagentur.opdt.walletsim.conformance.RequestObjectValidator;
 import de.arbeitsagentur.opdt.walletsim.conformance.ValidationMode;
+import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
+import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
 import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -39,6 +42,8 @@ public class AuthorizeController {
     private final SdJwtPresentationBuilder presentationBuilder;
     private final ResponseSubmitter responseSubmitter;
     private final ActivityLog activityLog;
+    private final CredentialEditForms editForms;
+    private final WalletCredentialService credentialService;
 
     public AuthorizeController(
             RequestObjectClient requestObjectClient,
@@ -47,7 +52,9 @@ public class AuthorizeController {
             DcqlMatcher dcqlMatcher,
             SdJwtPresentationBuilder presentationBuilder,
             ResponseSubmitter responseSubmitter,
-            ActivityLog activityLog) {
+            ActivityLog activityLog,
+            CredentialEditForms editForms,
+            WalletCredentialService credentialService) {
         this.requestObjectClient = requestObjectClient;
         this.validator = validator;
         this.conformanceSettings = conformanceSettings;
@@ -55,6 +62,8 @@ public class AuthorizeController {
         this.presentationBuilder = presentationBuilder;
         this.responseSubmitter = responseSubmitter;
         this.activityLog = activityLog;
+        this.editForms = editForms;
+        this.credentialService = credentialService;
     }
 
     @GetMapping("/authorize")
@@ -107,6 +116,52 @@ public class AuthorizeController {
                 "Presented credential " + credentialId + " to " + request.clientId(),
                 Map.of("disclosed_claims", match.claimsToDisclose()));
         return complete(result, model);
+    }
+
+    @PostMapping("/authorize/edit")
+    public String editDuringFlow(
+            @RequestParam("credentialId") String credentialId,
+            @RequestParam("flowState") String flowState,
+            Model model) {
+        CredentialEditForm form = editForms.cloneForm(credentialId);
+        form.setFlowState(flowState);
+        return editView(form, model);
+    }
+
+    @PostMapping("/authorize/edit/save")
+    public String saveAndPresent(@ModelAttribute("form") CredentialEditForm form, Model model) {
+        String error = editForms.validationError(form);
+        if (error != null) {
+            model.addAttribute("formError", error);
+            return editView(form, model);
+        }
+        AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
+        StoredCredential credential =
+                credentialService.issue(editForms.toDefinition(form), StoredCredential.Source.AD_HOC);
+        CredentialMatch match = matchCredentials(request).stream()
+                .filter(candidate -> candidate.credential().id().equals(credential.id()))
+                .findFirst()
+                .orElse(null);
+        if (match == null) {
+            model.addAttribute(
+                    "formError",
+                    "The credential was issued but does not match the verifier's query; adjust the claims or vct.");
+            return editView(form, model);
+        }
+        String presentation = presentationBuilder.build(
+                match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce());
+        SubmissionResult result = responseSubmitter.submitVpToken(request, match.credentialQueryId(), presentation);
+        activityLog.success(
+                "presentation",
+                "Presented ad-hoc credential " + credential.id() + " to " + request.clientId(),
+                Map.of("disclosed_claims", match.claimsToDisclose()));
+        return complete(result, model);
+    }
+
+    private String editView(CredentialEditForm form, Model model) {
+        model.addAttribute("form", form);
+        model.addAttribute("formAction", "/authorize/edit/save");
+        return "credential_edit";
     }
 
     @PostMapping("/authorize/cancel")

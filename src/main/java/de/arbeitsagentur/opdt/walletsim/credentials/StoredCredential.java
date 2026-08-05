@@ -1,8 +1,12 @@
 package de.arbeitsagentur.opdt.walletsim.credentials;
 
+import com.nimbusds.jose.jwk.ECKey;
 import java.util.Map;
 
-/** An issued credential held by the wallet, including its signed SD-JWT and status list slot. */
+/**
+ * An issued credential held by the wallet, including its signed SD-JWT, status list slot and the
+ * per-credential holder binding key matching the issued cnf.jwk.
+ */
 public record StoredCredential(
         String id,
         String name,
@@ -11,6 +15,7 @@ public record StoredCredential(
         Map<String, Object> claims,
         String sdJwt,
         int statusIndex,
+        ECKey holderKey,
         Source source) {
 
     public enum Source {
