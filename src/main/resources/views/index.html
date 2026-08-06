@@ -33,11 +33,12 @@
                                   data-th-text="${card.status == 0} ? 'Active' : 'Revoked'">Active</span><br/>
                             <span class="text-muted" data-th-text="${card.credential.vct}">vct</span><br/>
                             <small data-th-text="${card.credential.claims['given_name']} + ' ' + ${card.credential.claims['family_name']}">person</small><br/>
-                            <code data-th-text="${card.credential.id}">id</code>
+                            <small class="text-muted">ID:</small> <code data-th-text="${card.credential.id}">id</code>
                         </label>
                         <button type="submit" class="btn btn-sm btn-outline-danger mt-2"
                                 data-th-id="'toggle-status-' + ${card.credential.id}"
-                                data-th-formaction="@{__${basepath}__/credentials/{id}/status/toggle(id=${card.credential.id})}"
+                                name="status" data-th-value="${card.status == 0} ? 1 : 0"
+                                data-th-formaction="@{__${basepath}__/api/credentials/{id}/status(id=${card.credential.id})}"
                                 data-th-text="${card.status == 0} ? 'Revoke' : 'Activate'">Revoke</button>
                     </div>
                 </div>
