@@ -25,6 +25,7 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -170,7 +171,11 @@ public class SimulatorPki {
         if (Files.exists(file)) {
             try (PEMParser parser = new PEMParser(new FileReader(file.toFile()))) {
                 X509CertificateHolder holder = (X509CertificateHolder) parser.readObject();
-                return new JcaX509CertificateConverter().getCertificate(holder);
+                X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(holder);
+                // certificates persisted before key identifier support are upgraded in place
+                if (certificate.getExtensionValue(Extension.subjectKeyIdentifier.getId()) != null) {
+                    return certificate;
+                }
             }
         }
         X509Certificate certificate = supplier.get();
@@ -200,6 +205,9 @@ public class SimulatorPki {
                 keyPair.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+        JcaX509ExtensionUtils extensionUtils = new JcaX509ExtensionUtils();
+        builder.addExtension(
+                Extension.subjectKeyIdentifier, false, extensionUtils.createSubjectKeyIdentifier(keyPair.getPublic()));
         return new JcaX509CertificateConverter()
                 .getCertificate(
                         builder.build(new JcaContentSignerBuilder("SHA256withECDSA").build(keyPair.getPrivate())));
@@ -217,6 +225,15 @@ public class SimulatorPki {
                 leafKeyPair.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
+        JcaX509ExtensionUtils extensionUtils = new JcaX509ExtensionUtils();
+        builder.addExtension(
+                Extension.subjectKeyIdentifier,
+                false,
+                extensionUtils.createSubjectKeyIdentifier(leafKeyPair.getPublic()));
+        builder.addExtension(
+                Extension.authorityKeyIdentifier,
+                false,
+                extensionUtils.createAuthorityKeyIdentifier(caKeyPair.getPublic()));
         return new JcaX509CertificateConverter()
                 .getCertificate(
                         builder.build(new JcaContentSignerBuilder("SHA256withECDSA").build(caKeyPair.getPrivate())));

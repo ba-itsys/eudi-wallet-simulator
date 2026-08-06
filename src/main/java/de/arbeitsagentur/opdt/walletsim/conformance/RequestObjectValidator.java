@@ -192,12 +192,92 @@ public class RequestObjectValidator {
             findings.add(new Finding("dcql_query must contain a non-empty credentials array (OID4VP 1.0 §6.1)"));
             return;
         }
+        List<String> queryIds = new ArrayList<>();
         for (Object entry : credentials) {
             if (!(entry instanceof Map<?, ?> credentialQuery)
-                    || !(credentialQuery.get("id") instanceof String)
+                    || !(credentialQuery.get("id") instanceof String queryId)
                     || !(credentialQuery.get("format") instanceof String)) {
                 findings.add(new Finding(
                         "Every dcql_query credential query needs string 'id' and 'format' members (OID4VP 1.0 §6.1)"));
+                continue;
+            }
+            queryIds.add(queryId);
+            validateTrustedAuthorities(credentialQuery, queryId, findings);
+            validateClaimSets(credentialQuery, queryId, findings);
+        }
+        validateCredentialSets(dcqlQuery, queryIds, findings);
+    }
+
+    private static void validateTrustedAuthorities(Map<?, ?> credentialQuery, String queryId, List<Finding> findings) {
+        if (!(credentialQuery.get("trusted_authorities") instanceof List<?> authorities)) {
+            return;
+        }
+        for (Object entry : authorities) {
+            if (!(entry instanceof Map<?, ?> authority)
+                    || !(authority.get("type") instanceof String type)
+                    || !(authority.get("values") instanceof List<?> values)
+                    || values.isEmpty()) {
+                findings.add(
+                        new Finding(
+                                "Credential query '" + queryId
+                                        + "': every trusted_authorities entry needs a string 'type' and non-empty 'values' (OID4VP 1.0 §6.1.1)"));
+                continue;
+            }
+            if (!("aki".equals(type) || "etsi_tl".equals(type))) {
+                findings.add(new Finding("Credential query '" + queryId + "': unsupported trusted_authorities type '"
+                        + type + "', this wallet supports aki and etsi_tl (OID4VP 1.0 §6.1.1)"));
+            }
+        }
+    }
+
+    private static void validateClaimSets(Map<?, ?> credentialQuery, String queryId, List<Finding> findings) {
+        if (!(credentialQuery.get("claim_sets") instanceof List<?> claimSets)) {
+            return;
+        }
+        List<String> claimIds = credentialQuery.get("claims") instanceof List<?> claims
+                ? claims.stream()
+                        .filter(claim -> claim instanceof Map<?, ?> map && map.get("id") instanceof String)
+                        .map(claim -> (String) ((Map<?, ?>) claim).get("id"))
+                        .toList()
+                : List.of();
+        for (Object option : claimSets) {
+            if (!(option instanceof List<?> ids) || ids.isEmpty()) {
+                findings.add(new Finding("Credential query '" + queryId
+                        + "': claim_sets options must be non-empty arrays of claim ids (OID4VP 1.0 §6.4.2)"));
+                continue;
+            }
+            ids.stream()
+                    .filter(id -> !claimIds.contains(String.valueOf(id)))
+                    .forEach(id -> findings.add(new Finding("Credential query '" + queryId
+                            + "': claim_sets references unknown claim id '" + id + "' (OID4VP 1.0 §6.4.2)")));
+        }
+    }
+
+    private static void validateCredentialSets(
+            Map<String, Object> dcqlQuery, List<String> queryIds, List<Finding> findings) {
+        if (!(dcqlQuery.get("credential_sets") instanceof List<?> credentialSets)) {
+            return;
+        }
+        for (Object entry : credentialSets) {
+            if (!(entry instanceof Map<?, ?> set)
+                    || !(set.get("options") instanceof List<?> options)
+                    || options.isEmpty()) {
+                findings.add(
+                        new Finding("Every credential_sets entry needs a non-empty options array (OID4VP 1.0 §6.3.1)"));
+                continue;
+            }
+            for (Object option : options) {
+                if (!(option instanceof List<?> ids) || ids.isEmpty()) {
+                    findings.add(
+                            new Finding(
+                                    "credential_sets options must be non-empty arrays of credential query ids (OID4VP 1.0 §6.3.1)"));
+                    continue;
+                }
+                ids.stream()
+                        .filter(id -> !queryIds.contains(String.valueOf(id)))
+                        .forEach(id ->
+                                findings.add(new Finding("credential_sets references unknown credential query id '" + id
+                                        + "' (OID4VP 1.0 §6.3.1)")));
             }
         }
     }

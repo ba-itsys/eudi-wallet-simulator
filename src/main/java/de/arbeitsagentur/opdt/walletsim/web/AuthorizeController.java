@@ -10,14 +10,18 @@ import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.CredentialMatch;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.PresentationPlan;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.QuerySlot;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlQuery;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.InvalidRequestException;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.RequestObjectClient;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter.SubmissionResult;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SdJwtPresentationBuilder;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,10 +31,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * The wallet's web entry point for OID4VP: a verifier link opens the credential picker, the
- * user's selection is answered with a direct_post and the browser follows the verifier's
- * redirect_uri (same-device) or sees a completion page (cross-device). Conformance findings warn
- * in debug mode and refuse the request in strict mode.
+ * The wallet's web entry point for OID4VP: a verifier link opens the credential picker with one
+ * selection group per requested credential query, the user's selection is answered with a
+ * direct_post and the browser follows the verifier's redirect_uri (same-device) or sees a
+ * completion page (cross-device). Conformance findings warn in debug mode; in strict mode the
+ * request is refused and an invalid_request error response is sent to the verifier
+ * (OID4VP 1.0 §8.5).
  */
 @Controller
 public class AuthorizeController {
@@ -80,52 +86,55 @@ public class AuthorizeController {
         findings.forEach(finding -> activityLog.warning(
                 "presentation", "Request does not conform to OID4VP: " + finding.message(), Map.of()));
         if (conformanceSettings.mode() == ValidationMode.STRICT && !findings.isEmpty()) {
-            activityLog.error(
-                    "presentation",
-                    "Refused non-conformant request in strict mode from " + request.clientId(),
-                    Map.of());
-            model.addAttribute("errorMessage", "The verifier request violates OID4VP conformance (strict mode).");
-            model.addAttribute("findings", findings);
-            return "error_view";
+            return refuseNonConformantRequest(request, findings, model);
         }
 
-        model.addAttribute("verifierClientId", request.clientId() != null ? request.clientId() : clientId);
         model.addAttribute("findings", findings);
-        model.addAttribute("matches", matchCredentials(request));
-        model.addAttribute("flowState", requestObjectJwt);
-        return "presentation_select";
+        return renderPicker(request, model);
     }
 
     @PostMapping("/authorize/submit")
-    public String submit(
-            @RequestParam("credentialId") String credentialId,
-            @RequestParam("flowState") String flowState,
-            Model model) {
-        AuthorizationRequest request = AuthorizationRequest.parse(flowState);
-        CredentialMatch match = matchCredentials(request).stream()
-                .filter(candidate -> candidate.credential().id().equals(credentialId))
-                .findFirst()
-                .orElseThrow(() -> new InvalidRequestException(
-                        "Selected credential does not match the verifier's query: " + credentialId));
-
-        String presentation = presentationBuilder.build(
-                match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce());
-        SubmissionResult result = responseSubmitter.submitVpToken(request, match.credentialQueryId(), presentation);
+    public String submit(@ModelAttribute SelectionForm form, Model model) {
+        AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
+        PresentationPlan plan = plan(request);
+        Map<String, String> presentations = new LinkedHashMap<>();
+        Map<String, String> selectedCredentials = new LinkedHashMap<>();
+        for (QuerySlot slot : plan.slots()) {
+            String selectedId = form.getSelection().get(slot.queryId());
+            CredentialMatch match = slot.matches().stream()
+                    .filter(candidate -> candidate.credential().id().equals(selectedId))
+                    .findFirst()
+                    .orElseThrow(() -> new InvalidRequestException(
+                            "No matching credential selected for query '" + slot.queryId() + "'"));
+            selectedCredentials.put(slot.queryId(), match.credential().id());
+            presentations.put(
+                    slot.queryId(),
+                    presentationBuilder.build(
+                            match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce()));
+        }
+        if (presentations.isEmpty()) {
+            throw new InvalidRequestException("No credential in this wallet matches the verifier's query");
+        }
+        SubmissionResult result = responseSubmitter.submitVpToken(request, presentations);
         activityLog.success(
                 "presentation",
-                "Presented credential " + credentialId + " to " + request.clientId(),
-                Map.of("disclosed_claims", match.claimsToDisclose()));
+                "Presented credentials " + selectedCredentials + " to " + request.clientId(),
+                Map.of("selected_credentials", selectedCredentials));
         return complete(result, model);
     }
 
     @PostMapping("/authorize/edit")
     public String editDuringFlow(
-            @RequestParam("credentialId") String credentialId,
-            @RequestParam("flowState") String flowState,
+            @RequestParam(name = "credentialId", required = false) String credentialId,
+            @ModelAttribute SelectionForm form,
             Model model) {
-        CredentialEditForm form = editForms.cloneForm(credentialId);
-        form.setFlowState(flowState);
-        return editView(form, model);
+        String templateId = credentialId != null && !credentialId.isBlank()
+                ? credentialId
+                : form.firstSelectedCredentialId()
+                        .orElseThrow(() -> new InvalidRequestException("No credential selected for editing"));
+        CredentialEditForm editForm = editForms.cloneForm(templateId);
+        editForm.setFlowState(form.getFlowState());
+        return editView(editForm, model);
     }
 
     @PostMapping("/authorize/edit/save")
@@ -145,30 +154,37 @@ public class AuthorizeController {
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
         StoredCredential credential =
                 credentialService.issue(editForms.toDefinition(form), StoredCredential.Source.AD_HOC);
-        CredentialMatch match = matchCredentials(request).stream()
-                .filter(candidate -> candidate.credential().id().equals(credential.id()))
-                .findFirst()
-                .orElse(null);
-        if (match == null) {
-            model.addAttribute(
-                    "formError",
-                    "The credential was issued but does not match the verifier's query; adjust the claims or vct.");
-            return editView(form, model);
+        PresentationPlan plan = plan(request);
+        if (plan.slots().size() == 1) {
+            QuerySlot slot = plan.slots().getFirst();
+            CredentialMatch match = slot.matches().stream()
+                    .filter(candidate -> candidate.credential().id().equals(credential.id()))
+                    .findFirst()
+                    .orElse(null);
+            if (match == null) {
+                model.addAttribute(
+                        "formError",
+                        "The credential was issued but does not match the verifier's query; adjust the claims or vct.");
+                return editView(form, model);
+            }
+            String presentation = presentationBuilder.build(
+                    match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce());
+            SubmissionResult result = responseSubmitter.submitVpToken(request, Map.of(slot.queryId(), presentation));
+            activityLog.success(
+                    "presentation",
+                    "Presented ad-hoc credential " + credential.id() + " to " + request.clientId(),
+                    Map.of("disclosed_claims", match.claimsToDisclose()));
+            return complete(result, model);
         }
-        String presentation = presentationBuilder.build(
-                match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce());
-        SubmissionResult result = responseSubmitter.submitVpToken(request, match.credentialQueryId(), presentation);
-        activityLog.success(
-                "presentation",
-                "Presented ad-hoc credential " + credential.id() + " to " + request.clientId(),
-                Map.of("disclosed_claims", match.claimsToDisclose()));
-        return complete(result, model);
+        model.addAttribute("findings", List.of());
+        return renderPicker(request, model);
     }
 
-    private String editView(CredentialEditForm form, Model model) {
-        model.addAttribute("form", form);
-        model.addAttribute("formAction", "/authorize/edit/save");
-        return "credential_edit";
+    @PostMapping("/authorize/edit/cancel")
+    public String cancelEditDuringFlow(@RequestParam("flowState") String flowState, Model model) {
+        AuthorizationRequest request = AuthorizationRequest.parse(flowState);
+        model.addAttribute("findings", List.of());
+        return renderPicker(request, model);
     }
 
     @PostMapping("/authorize/cancel")
@@ -180,12 +196,52 @@ public class AuthorizeController {
         return complete(result, model);
     }
 
-    private List<CredentialMatch> matchCredentials(AuthorizationRequest request) {
-        try {
-            return dcqlMatcher.match(DcqlQuery.from(request.dcqlQuery()));
-        } catch (InvalidRequestException e) {
-            return List.of();
+    private String refuseNonConformantRequest(AuthorizationRequest request, List<Finding> findings, Model model) {
+        String description = findings.stream().map(Finding::message).collect(Collectors.joining("; "));
+        boolean errorSent = false;
+        if (isUsableResponseUri(request.responseUri())) {
+            try {
+                responseSubmitter.submitError(request, "invalid_request", description);
+                errorSent = true;
+            } catch (InvalidRequestException e) {
+                activityLog.error("presentation", "Could not deliver error response: " + e.getMessage(), Map.of());
+            }
         }
+        activityLog.error(
+                "presentation", "Refused non-conformant request in strict mode from " + request.clientId(), Map.of());
+        model.addAttribute(
+                "errorMessage",
+                "The verifier request violates OID4VP conformance (strict mode)."
+                        + (errorSent ? " An invalid_request error response was sent to the verifier." : ""));
+        model.addAttribute("findings", findings);
+        return "error_view";
+    }
+
+    private static boolean isUsableResponseUri(String responseUri) {
+        return responseUri != null && (responseUri.startsWith("http://") || responseUri.startsWith("https://"));
+    }
+
+    private String renderPicker(AuthorizationRequest request, Model model) {
+        PresentationPlan plan = plan(request);
+        model.addAttribute("verifierClientId", request.clientId());
+        model.addAttribute("slots", plan.slots());
+        model.addAttribute("satisfiable", plan.satisfiable());
+        model.addAttribute("flowState", request.rawRequestObject());
+        return "presentation_select";
+    }
+
+    private PresentationPlan plan(AuthorizationRequest request) {
+        try {
+            return dcqlMatcher.plan(DcqlQuery.from(request.dcqlQuery()));
+        } catch (InvalidRequestException e) {
+            return new PresentationPlan(List.of(), false);
+        }
+    }
+
+    private String editView(CredentialEditForm form, Model model) {
+        model.addAttribute("form", form);
+        model.addAttribute("formAction", "/authorize/edit/save");
+        return "credential_edit";
     }
 
     private String complete(SubmissionResult result, Model model) {

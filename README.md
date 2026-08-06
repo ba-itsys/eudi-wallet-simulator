@@ -26,19 +26,60 @@ A ready to run Keycloak verifier setup is in [`examples/keycloak`](examples/keyc
    value into the verifier configuration. The registrar key is persisted. The certificate stays
    valid across simulator restarts.
 
+### Registration certificate example
+
+The client_id is the base64url SHA-256 hash of the verifier's signing certificate:
+
+```sh
+HASH=$(openssl x509 -in verifier-cert.pem -outform DER \
+  | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+curl "http://localhost:8080/api/registration-certificates?client_id=x509_hash:${HASH}&purpose=Login"
+```
+
+The response contains the raw certificate and the ready to paste `verifierInfo` value:
+
+```json
+{
+  "registrationCertificate": "eyJ0eXAiOiJyYy1ycCtqd3QiLCJ4NWMiOlsi...",
+  "verifierInfo": "[{\"format\":\"jwt\",\"data\":\"eyJ0eXAiOiJyYy1ycCtqd3QiLCJ4NWMi...\"}]"
+}
+```
+
+For keycloak-extension-oid4vp put the `verifierInfo` string into the `oid4vp` identity provider
+configuration:
+
+```json
+{
+  "alias": "oid4vp",
+  "providerId": "oid4vp",
+  "config": {
+    "verifierInfo": "[{\"format\":\"jwt\",\"data\":\"eyJ0eXAiOiJyYy1ycCtqd3QiLCJ4NWMi...\"}]"
+  }
+}
+```
+
+In the Keycloak admin console the same value goes into the *Verifier Info (JSON)* field of the
+`oid4vp` identity provider. The rendered realm in `examples/keycloak/realm-wallet-demo.json`
+shows a complete working configuration.
+
 ## Using the UI
 
 The home page shows all wallet credentials as cards. You can revoke and activate them, clone one
-as a template with *Edit as template*, or create one from scratch with *New credential*. Claims
-are edited as raw JSON.
+as a template with *Edit as template*, or create one from scratch with *New credential*. Every
+claim is a form field. Nested claims use dot notation, for example address.locality.
 
-During a verification the picker shows every credential that matches the verifier's DCQL query.
+During a verification the picker shows one selection group per requested DCQL credential query.
+The evaluation covers vct and claim matching, claim_sets in preference order, credential_sets
+combinations and trusted_authorities (aki and etsi_tl). Credentials that do not match are not
+offered. The answer is a multi entry vp_token when several queries are requested.
 *Present credential* answers directly. *Edit & present* clones the selected credential, lets you
 change the claims, then issues and presents the edited credential in one step. Every issued
 credential gets a fresh holder binding key.
 
 Conformance warnings appear on the picker when the verifier request violates OID4VP or HAIP. In
-`strict` mode such requests are refused instead.
+`strict` mode such requests are refused and the wallet answers the verifier with an
+`invalid_request` error response per OID4VP 1.0 §8.5. Cancelling sends `access_denied`. Error
+responses are encrypted for `direct_post.jwt`.
 
 ## Automating the UI
 
@@ -48,7 +89,8 @@ Playwright and similar frameworks can rely on these selectors.
 | Selector | Element |
 |---|---|
 | `[data-credential-id="<id>"]` | Credential card on the home page and the picker |
-| `#select-<id>` | Radio button that selects a credential |
+| `#select-<id>` | Radio button that selects a credential on the home page |
+| `#select-<queryId>-<id>` | Radio button on the picker, one group per DCQL credential query |
 | `#present-credential`, `#edit-and-present`, `#cancel-presentation` | Actions on the picker |
 | `#edit-as-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
 | `#credential-id`, `#credential-name`, `#credential-vct`, `#validity-days` | Edit form header fields |
