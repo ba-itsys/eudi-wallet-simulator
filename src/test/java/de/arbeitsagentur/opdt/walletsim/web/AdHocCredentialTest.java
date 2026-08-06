@@ -161,12 +161,16 @@ class AdHocCredentialTest {
     }
 
     @Test
-    void statusToggleRevokesCredentialFromTheUi() {
-        ResponseEntity<String> toggled = client().post()
-                .uri("/credentials/pid-thomas-bauer/status/toggle")
+    void uiStatusFormPostRevokesThroughTheApi() {
+        ResponseEntity<String> revoked = client().post()
+                .uri("/api/credentials/pid-thomas-bauer/status")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("status=1")
                 .retrieve()
                 .toEntity(String.class);
-        assertThat(toggled.getStatusCode().is3xxRedirection()).isTrue();
+        assertThat(revoked.getStatusCode().is3xxRedirection())
+                .as("the form variant redirects back to the home page")
+                .isTrue();
 
         JsonNode status = client().get()
                 .uri("/api/credentials/pid-thomas-bauer/status")
@@ -175,7 +179,9 @@ class AdHocCredentialTest {
         assertThat(status.get("status").asInt()).isEqualTo(1);
 
         client().post()
-                .uri("/credentials/pid-thomas-bauer/status/toggle")
+                .uri("/api/credentials/pid-thomas-bauer/status")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("status=0")
                 .retrieve()
                 .toBodilessEntity();
     }

@@ -5,14 +5,19 @@ import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
+import java.net.URI;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 // Revocation API: set or read the status list value of a single credential.
@@ -25,26 +30,41 @@ public class CredentialStatusApiController {
     private final CredentialStore store;
     private final AppUrls urls;
     private final ActivityLog activityLog;
+    private final String basepath;
 
-    public CredentialStatusApiController(CredentialStore store, AppUrls urls, ActivityLog activityLog) {
+    public CredentialStatusApiController(
+            CredentialStore store, AppUrls urls, ActivityLog activityLog, @Value("${app.basepath:}") String basepath) {
         this.store = store;
         this.urls = urls;
         this.activityLog = activityLog;
+        this.basepath = basepath == null ? "" : basepath;
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public StatusReference setStatus(@PathVariable String id, @RequestBody StatusChangeRequest request) {
-        if (request.status() < 0 || request.status() > 255) {
+        return applyStatus(id, request.status());
+    }
+
+    // form variant for the server rendered UI, answering with a redirect back to the home page
+    @PostMapping(consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ResponseEntity<Void> setStatusFromForm(@PathVariable String id, @RequestParam("status") int status) {
+        applyStatus(id, status);
+        return ResponseEntity.status(HttpStatus.SEE_OTHER)
+                .location(URI.create(basepath + "/"))
+                .build();
+    }
+
+    private StatusReference applyStatus(String id, int status) {
+        if (status < 0 || status > 255) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST);
         }
         StoredCredential credential = requireCredential(id);
-        store.setStatus(id, request.status());
-        StatusReference reference =
-                StatusReference.of(urls.statusListUri(), credential.statusIndex(), request.status());
+        store.setStatus(id, status);
+        StatusReference reference = StatusReference.of(urls.statusListUri(), credential.statusIndex(), status);
         activityLog.success(
                 "status",
                 "Set status " + reference.statusName() + " on credential " + id,
-                Map.of("idx", credential.statusIndex(), "status", request.status()));
+                Map.of("idx", credential.statusIndex(), "status", status));
         return reference;
     }
 
