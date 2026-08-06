@@ -1,0 +1,132 @@
+package de.arbeitsagentur.opdt.walletsim.oid4vp;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.nimbusds.jwt.SignedJWT;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * vct inheritance: SD-JWT VC type metadata lets a vct extend a base type, and the wallet may
+ * answer a request for the base type with an extending credential. The extends relation is
+ * resolved here with a simplified urn child rule: the child inserts segments between the base
+ * prefix and the version, so urn:eudi:pid:de:1 extends urn:eudi:pid:1.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class VctInheritanceTest {
+
+    @LocalServerPort
+    private int port;
+
+    private RestClient client() {
+        return RestClient.builder()
+                .baseUrl("http://localhost:" + port)
+                .defaultStatusHandler(status -> true, (request, response) -> {})
+                .build();
+    }
+
+    @Test
+    void baseVctRequestOffersInheritedCredentials() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(dcqlForVct("urn:eudi:pid:1"))) {
+            String picker =
+                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
+
+            assertThat(picker).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(picker)
+                    .as("urn:eudi:pid:de:1 extends urn:eudi:pid:1")
+                    .contains("data-credential-id=\"pid-thomas-bauer\"");
+            assertThat(picker)
+                    .as("urn:eudi:pid:it:1 extends urn:eudi:pid:1")
+                    .contains("data-credential-id=\"pid-sofia-rossi\"");
+        }
+    }
+
+    @Test
+    void childVctRequestDoesNotOfferBaseOrSiblingCredentials() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(dcqlForVct("urn:eudi:pid:de:1"))) {
+            String picker =
+                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
+
+            assertThat(picker).contains("data-credential-id=\"pid-thomas-bauer\"");
+            assertThat(picker).contains("data-credential-id=\"pid-erika-mustermann\"");
+            assertThat(picker)
+                    .as("the base type does not extend the child type")
+                    .doesNotContain("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(picker)
+                    .as("sibling country types do not extend each other")
+                    .doesNotContain("data-credential-id=\"pid-sofia-rossi\"");
+        }
+    }
+
+    @Test
+    void unrelatedVctRequestOffersNothing() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(dcqlForVct("urn:eudi:diploma:1"))) {
+            String picker =
+                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
+            assertThat(picker).doesNotContain("data-credential-id");
+        }
+    }
+
+    @Test
+    void inheritedCredentialIsPresentedWithItsOwnVct() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(dcqlForVct("urn:eudi:pid:1"))) {
+            String picker =
+                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
+            String flowState = extractHiddenField(picker, "flowState");
+
+            ResponseEntity<String> submit = client().post()
+                    .uri("/authorize/submit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("selection%5Bpid%5D=pid-thomas-bauer&flowState="
+                            + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(submit.getStatusCode().is3xxRedirection()).isTrue();
+
+            String vpToken = verifier.awaitResponse().formParameters().get("vp_token");
+            String presentation = new ObjectMapper()
+                    .readValue(vpToken, JsonNode.class)
+                    .get("pid")
+                    .get(0)
+                    .asText();
+            SignedJWT issuerJwt = SignedJWT.parse(presentation.split("~")[0]);
+            assertThat(issuerJwt.getJWTClaimsSet().getStringClaim("vct")).isEqualTo("urn:eudi:pid:de:1");
+        }
+    }
+
+    private static String dcqlForVct(String vct) {
+        return """
+                {"credentials": [{
+                    "id": "pid",
+                    "format": "dc+sd-jwt",
+                    "meta": {"vct_values": ["%s"]},
+                    "claims": [{"path": ["family_name"]}]
+                }]}
+                """
+                .formatted(vct);
+    }
+
+    private static String extractHiddenField(String html, String name) {
+        String marker = "name=\"" + name + "\" value=\"";
+        int start = html.indexOf(marker);
+        assertThat(start).as("hidden field '%s' present", name).isNotNegative();
+        start += marker.length();
+        return html.substring(start, html.indexOf('"', start));
+    }
+
+    private URI authorizeUri(TestVerifier verifier) {
+        return URI.create("http://localhost:" + port + "/authorize?client_id="
+                + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
+                + "&request_uri="
+                + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
+    }
+}
