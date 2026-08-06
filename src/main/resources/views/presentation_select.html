@@ -6,13 +6,13 @@
 <body class="d-flex flex-column min-vh-100">
 <nav data-th-replace="~{fragments/snippets :: navbar}"></nav>
 <div class="container my-4">
-    <h1>Present a credential</h1>
+    <h1>Present credentials</h1>
     <p class="text-muted">
         Verifier <code data-th-text="${verifierClientId}">client id</code> requests a credential presentation.
-        Select a credential to share.
+        Select a credential for every requested query.
     </p>
 
-    <div id="conformance-warnings" class="alert alert-warning" data-th-if="${not #lists.isEmpty(findings)}">
+    <div id="conformance-warnings" class="alert alert-warning" data-th-if="${findings != null and not #lists.isEmpty(findings)}">
         <strong>Verifier conformance warnings</strong>
         <ul class="mb-0">
             <li data-th-each="finding : ${findings}" data-th-text="${finding.message}">finding</li>
@@ -22,37 +22,41 @@
     <form method="post" data-th-action="@{__${basepath}__/authorize/submit}">
         <input type="hidden" name="flowState" data-th-value="${flowState}"/>
 
-        <div class="alert alert-warning" data-th-if="${#lists.isEmpty(matches)}">
+        <div class="alert alert-warning" data-th-unless="${satisfiable}">
             No credential in this wallet matches the verifier's query.
         </div>
 
-        <h4 data-th-unless="${#lists.isEmpty(matches)}">Credentials</h4>
-        <div class="row row-cols-1 row-cols-md-3 g-2 mb-3">
-            <div class="col" data-th-each="match, iterStat : ${matches}">
-                <div class="card h-100" data-th-attr="data-credential-id=${match.credential.id}">
-                    <div class="card-body form-check">
-                        <input class="form-check-input" type="radio" name="credentialId"
-                               data-th-id="'select-' + ${match.credential.id}"
-                               data-th-value="${match.credential.id}"
-                               data-th-checked="${iterStat.first}"/>
-                        <label class="form-check-label w-100" data-th-for="'select-' + ${match.credential.id}">
-                            <strong data-th-text="${match.credential.name}">Credential</strong><br/>
-                            <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
-                            <small>Disclosed claims:
-                                <span data-th-text="${#strings.listJoin(match.claimsToDisclose, ', ')}">claims</span>
-                            </small><br/>
-                            <code data-th-text="${match.credential.id}">id</code>
-                        </label>
+        <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.matches)}">
+            <h4 data-th-text="'Credentials for query ' + ${slot.queryId}">Credentials</h4>
+            <div class="row row-cols-1 row-cols-md-3 g-2 mb-3">
+                <div class="col" data-th-each="match, iterStat : ${slot.matches}">
+                    <div class="card h-100" data-th-attr="data-credential-id=${match.credential.id}">
+                        <div class="card-body form-check">
+                            <input class="form-check-input" type="radio"
+                                   data-th-name="'selection[' + ${slot.queryId} + ']'"
+                                   data-th-id="'select-' + ${slot.queryId} + '-' + ${match.credential.id}"
+                                   data-th-value="${match.credential.id}"
+                                   data-th-checked="${iterStat.first}"/>
+                            <label class="form-check-label w-100"
+                                   data-th-for="'select-' + ${slot.queryId} + '-' + ${match.credential.id}">
+                                <strong data-th-text="${match.credential.name}">Credential</strong><br/>
+                                <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
+                                <small>Disclosed claims:
+                                    <span data-th-text="${#strings.listJoin(match.claimsToDisclose, ', ')}">claims</span>
+                                </small><br/>
+                                <code data-th-text="${match.credential.id}">id</code>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <button type="submit" class="btn btn-primary" id="present-credential" style="width:15rem"
-                data-th-disabled="${#lists.isEmpty(matches)}">Present credential</button>
+                data-th-disabled="${!satisfiable}">Present credential</button>
         <button type="submit" class="btn btn-outline-primary" id="edit-and-present" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/edit}"
-                data-th-disabled="${#lists.isEmpty(matches)}">Edit &amp; present (optional)</button>
+                data-th-disabled="${!satisfiable}">Edit &amp; present (optional)</button>
         <button type="submit" class="btn btn-secondary" id="cancel-presentation" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>
     </form>

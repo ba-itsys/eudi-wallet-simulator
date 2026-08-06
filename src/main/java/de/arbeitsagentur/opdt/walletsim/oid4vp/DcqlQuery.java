@@ -3,18 +3,28 @@ package de.arbeitsagentur.opdt.walletsim.oid4vp;
 import java.util.List;
 import java.util.Map;
 
-// Typed view of the DCQL query subset the simulator evaluates.
-public record DcqlQuery(List<CredentialQuery> credentials) {
+// Typed view of the DCQL query subset the simulator evaluates (OID4VP 1.0 §6).
+public record DcqlQuery(List<CredentialQuery> credentials, List<CredentialSetQuery> credentialSets) {
 
-    public record CredentialQuery(String id, String format, List<String> vctValues, List<ClaimQuery> claims) {}
+    public record CredentialQuery(
+            String id,
+            String format,
+            List<String> vctValues,
+            List<ClaimQuery> claims,
+            List<List<String>> claimSets,
+            List<TrustedAuthority> trustedAuthorities) {}
 
-    public record ClaimQuery(List<Object> path) {
+    public record ClaimQuery(String id, List<Object> path) {
 
-        // First path element; the top-level claim name deciding which disclosure to release.
+        // First path element, the top-level claim name deciding which disclosure to release.
         public String topLevelClaimName() {
-            return path.isEmpty() ? null : String.valueOf(path.getFirst());
+            return path == null || path.isEmpty() ? null : String.valueOf(path.getFirst());
         }
     }
+
+    public record TrustedAuthority(String type, List<String> values) {}
+
+    public record CredentialSetQuery(List<List<String>> options, boolean required) {}
 
     @SuppressWarnings("unchecked")
     public static DcqlQuery from(Map<String, Object> dcqlQuery) {
@@ -24,7 +34,12 @@ public record DcqlQuery(List<CredentialQuery> credentials) {
         List<CredentialQuery> credentials = credentialEntries.stream()
                 .map(entry -> toCredentialQuery((Map<String, Object>) entry))
                 .toList();
-        return new DcqlQuery(credentials);
+        List<CredentialSetQuery> credentialSets = dcqlQuery.get("credential_sets") instanceof List<?> setEntries
+                ? setEntries.stream()
+                        .map(entry -> toCredentialSetQuery((Map<String, Object>) entry))
+                        .toList()
+                : List.of();
+        return new DcqlQuery(credentials, credentialSets);
     }
 
     @SuppressWarnings("unchecked")
@@ -37,9 +52,48 @@ public record DcqlQuery(List<CredentialQuery> credentials) {
                 : List.of();
         List<ClaimQuery> claims = entry.get("claims") instanceof List<?> claimEntries
                 ? claimEntries.stream()
-                        .map(claim -> new ClaimQuery(((Map<String, List<Object>>) claim).get("path")))
+                        .map(claim -> toClaimQuery((Map<String, Object>) claim))
                         .toList()
                 : List.of();
-        return new CredentialQuery(id, format, vctValues, claims);
+        List<List<String>> claimSets = entry.get("claim_sets") instanceof List<?> setEntries
+                ? setEntries.stream()
+                        .map(option -> ((List<Object>) option)
+                                .stream().map(String::valueOf).toList())
+                        .toList()
+                : List.of();
+        List<TrustedAuthority> trustedAuthorities = entry.get("trusted_authorities") instanceof List<?> authorityEntries
+                ? authorityEntries.stream()
+                        .map(authority -> toTrustedAuthority((Map<String, Object>) authority))
+                        .toList()
+                : List.of();
+        return new CredentialQuery(id, format, vctValues, claims, claimSets, trustedAuthorities);
+    }
+
+    private static ClaimQuery toClaimQuery(Map<String, Object> claim) {
+        return new ClaimQuery((String) claim.get("id"), (List<Object>) castPath(claim.get("path")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object> castPath(Object path) {
+        return path instanceof List<?> steps ? (List<Object>) steps : List.of();
+    }
+
+    private static TrustedAuthority toTrustedAuthority(Map<String, Object> authority) {
+        List<String> values = authority.get("values") instanceof List<?> entries
+                ? entries.stream().map(String::valueOf).toList()
+                : List.of();
+        return new TrustedAuthority((String) authority.get("type"), values);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static CredentialSetQuery toCredentialSetQuery(Map<String, Object> entry) {
+        List<List<String>> options = entry.get("options") instanceof List<?> optionEntries
+                ? optionEntries.stream()
+                        .map(option -> ((List<Object>) option)
+                                .stream().map(String::valueOf).toList())
+                        .toList()
+                : List.of();
+        boolean required = !(entry.get("required") instanceof Boolean flag) || flag;
+        return new CredentialSetQuery(options, required);
     }
 }

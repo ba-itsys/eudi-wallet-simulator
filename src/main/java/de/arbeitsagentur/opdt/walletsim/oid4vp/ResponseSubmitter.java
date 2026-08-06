@@ -29,32 +29,37 @@ public class ResponseSubmitter {
         this.responseEncryptor = responseEncryptor;
     }
 
-    public SubmissionResult submitVpToken(AuthorizationRequest request, String credentialQueryId, String presentation) {
-        String vpToken = objectMapper.writeValueAsString(Map.of(credentialQueryId, List.of(presentation)));
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        if ("direct_post.jwt".equals(request.responseMode())) {
-            Map<String, String> parameters = new LinkedHashMap<>();
-            if (request.state() != null) {
-                parameters.put("state", request.state());
-            }
-            parameters.put("vp_token", vpToken);
-            form.add("response", responseEncryptor.encrypt(request, parameters));
-        } else {
-            if (request.state() != null) {
-                form.add("state", request.state());
-            }
-            form.add("vp_token", vpToken);
+    // presentationsByQueryId keeps the DCQL credential query id to presentation association
+    public SubmissionResult submitVpToken(AuthorizationRequest request, Map<String, String> presentationsByQueryId) {
+        Map<String, List<String>> vpTokenEntries = new LinkedHashMap<>();
+        presentationsByQueryId.forEach((queryId, presentation) -> vpTokenEntries.put(queryId, List.of(presentation)));
+        Map<String, String> parameters = new LinkedHashMap<>();
+        if (request.state() != null) {
+            parameters.put("state", request.state());
         }
-        return submit(request.responseUri(), form);
+        parameters.put("vp_token", objectMapper.writeValueAsString(vpTokenEntries));
+        return submit(request, parameters);
     }
 
+    // OID4VP 1.0 §8.5: error responses go to the response_uri like any other authorization response
     public SubmissionResult submitError(AuthorizationRequest request, String error, String errorDescription) {
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        Map<String, String> parameters = new LinkedHashMap<>();
         if (request.state() != null) {
-            form.add("state", request.state());
+            parameters.put("state", request.state());
         }
-        form.add("error", error);
-        form.add("error_description", errorDescription);
+        parameters.put("error", error);
+        parameters.put("error_description", errorDescription);
+        return submit(request, parameters);
+    }
+
+    private SubmissionResult submit(AuthorizationRequest request, Map<String, String> parameters) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        if ("direct_post.jwt".equals(request.responseMode())
+                && !ClientMetadataKeys.encryptionKeys(request.clientMetadata()).isEmpty()) {
+            form.add("response", responseEncryptor.encrypt(request, parameters));
+        } else {
+            parameters.forEach(form::add);
+        }
         return submit(request.responseUri(), form);
     }
 

@@ -36,10 +36,13 @@ PICKER=$(curl -sS "$WALLET_URL")
 printf '%s' "$PICKER" | grep -q 'data-credential-id="pid-maria-neumann"' || fail "picker does not offer the PID credential"
 FLOW_STATE=$(printf '%s' "$PICKER" | grep -o 'name="flowState" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"$//')
 [ -n "$FLOW_STATE" ] || fail "no flowState on the picker page"
+QUERY_ID=$(printf '%s' "$PICKER" | grep -o 'id="select-[^"]*-pid-maria-neumann"' | head -1 \
+  | sed 's/id="select-//;s/-pid-maria-neumann"//')
+[ -n "$QUERY_ID" ] || fail "no selection group for the PID credential on the picker"
 
 echo "4/6 Presenting the credential..."
 REDIRECT=$(curl -sS -o /dev/null -w '%{redirect_url}' \
-  --data-urlencode "credentialId=pid-maria-neumann" \
+  --data-urlencode "selection[${QUERY_ID}]=pid-maria-neumann" \
   --data-urlencode "flowState=${FLOW_STATE}" \
   "${SIMULATOR_URL}/authorize/submit")
 case "$REDIRECT" in
@@ -56,7 +59,7 @@ case "$FINAL_URL" in
 esac
 
 echo "6/6 Verifying the simulator logged the presentation..."
-curl -sS "${SIMULATOR_URL}/api/log" | grep -q "Presented credential pid-maria-neumann" \
+curl -sS "${SIMULATOR_URL}/api/log" | grep -q "pid-maria-neumann" \
   || fail "simulator activity log has no presentation entry"
 
 echo "PASS: full same-device login flow via keycloak-extension-oid4vp succeeded."

@@ -52,7 +52,7 @@ class EncryptedResponseTest {
             ResponseEntity<String> submit = client().post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("credentialId=pid-maria-neumann&flowState="
+                    .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);
