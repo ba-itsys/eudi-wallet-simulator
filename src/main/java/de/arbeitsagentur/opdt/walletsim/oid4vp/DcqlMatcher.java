@@ -112,7 +112,7 @@ public class DcqlMatcher {
         if (!CredentialDefinition.FORMAT_SD_JWT_VC.equals(query.format())) {
             return Optional.empty();
         }
-        if (!query.vctValues().isEmpty() && !query.vctValues().contains(credential.vct())) {
+        if (!VctMatcher.matches(query.vctValues(), credential.vct())) {
             return Optional.empty();
         }
         if (!trustedAuthorityMatcher.matches(credential, query.trustedAuthorities())) {
