@@ -13,9 +13,10 @@ import tools.jackson.databind.ObjectMapper;
  * Shared mechanics of the credential edit form: cloning an existing credential as template,
  * building a fresh template, validating the submitted form, and turning it into a definition.
  *
- * <p>Claim values round-trip as text: strings render raw, everything else renders as JSON. On
- * submit a value is parsed as JSON when possible and kept as a string otherwise, so a postal
- * code like {@code "10409"} renders quoted and survives as a string.
+ * <p>Nested claim objects are flattened into dot notation fields (address.locality) and
+ * reassembled on submit. Claim values round-trip as text: strings render raw, everything else
+ * renders as JSON. On submit a value is parsed as JSON when possible and kept as a string
+ * otherwise, so a postal code like {@code "10409"} renders quoted and survives as a string.
  */
 @Component
 public class CredentialEditForms {
@@ -96,20 +97,36 @@ public class CredentialEditForms {
 
     private Map<String, Object> parseClaims(CredentialEditForm form) {
         Map<String, Object> claims = new LinkedHashMap<>();
-        form.getClaimValues().forEach((claimName, value) -> {
+        form.getClaimValues().forEach((claimPath, value) -> {
             if (value != null && !value.isBlank()) {
-                claims.put(claimName, parseClaimValue(value.trim()));
+                putNested(claims, claimPath, parseClaimValue(value.trim()));
             }
         });
         if (form.getNewClaimName() != null
                 && !form.getNewClaimName().isBlank()
                 && form.getNewClaimValue() != null
                 && !form.getNewClaimValue().isBlank()) {
-            claims.put(
+            putNested(
+                    claims,
                     form.getNewClaimName().trim(),
                     parseClaimValue(form.getNewClaimValue().trim()));
         }
         return claims;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void putNested(Map<String, Object> claims, String claimPath, Object value) {
+        String[] steps = claimPath.split("\\.");
+        Map<String, Object> current = claims;
+        for (int i = 0; i < steps.length - 1; i++) {
+            Object next = current.get(steps[i]);
+            if (!(next instanceof Map)) {
+                next = new LinkedHashMap<String, Object>();
+                current.put(steps[i], next);
+            }
+            current = (Map<String, Object>) next;
+        }
+        current.put(steps[steps.length - 1], value);
     }
 
     private Object parseClaimValue(String value) {
@@ -122,8 +139,20 @@ public class CredentialEditForms {
 
     private Map<String, String> renderClaimValues(Map<String, Object> claims) {
         Map<String, String> values = new LinkedHashMap<>();
-        claims.forEach((claimName, value) -> values.put(claimName, renderClaimValue(value)));
+        flatten("", claims, values);
         return values;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void flatten(String prefix, Map<String, Object> claims, Map<String, String> values) {
+        claims.forEach((claimName, value) -> {
+            String path = prefix.isEmpty() ? claimName : prefix + "." + claimName;
+            if (value instanceof Map<?, ?> nested) {
+                flatten(path, (Map<String, Object>) nested, values);
+            } else {
+                values.put(path, renderClaimValue(value));
+            }
+        });
     }
 
     private String renderClaimValue(Object value) {

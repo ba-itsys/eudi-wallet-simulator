@@ -54,6 +54,10 @@ class AdHocCredentialTest {
                 .as("every claim renders as its own input with a stable id")
                 .contains("id=\"claim-family_name\"");
         assertThat(editForm.getBody()).contains("name=\"claimValues[family_name]\"");
+        assertThat(editForm.getBody())
+                .as("nested claims render as dot notation fields")
+                .contains("id=\"claim-address.street_address\"");
+        assertThat(editForm.getBody()).contains("id=\"claim-address.locality\"");
         assertThat(editForm.getBody()).contains("Neumann");
         assertThat(editForm.getBody()).contains("id=\"new-claim-name\"");
         assertThat(editForm.getBody())
@@ -72,6 +76,8 @@ class AdHocCredentialTest {
                         + "&claimValues%5Bfamily_name%5D=Custom"
                         + "&claimValues%5Bgiven_name%5D=Ada"
                         + "&claimValues%5Bbirthdate%5D=1990-01-01"
+                        + "&claimValues%5Baddress.locality%5D=Berlin"
+                        + "&claimValues%5Baddress.postal_code%5D=10409"
                         + "&newClaimName=nickname&newClaimValue=Ady")
                 .retrieve()
                 .toEntity(String.class);
@@ -86,6 +92,12 @@ class AdHocCredentialTest {
         assertThat(credential.get("claims").get("nickname").asText())
                 .as("the add-claim row contributes a claim")
                 .isEqualTo("Ady");
+        assertThat(credential.get("claims").get("address").get("locality").asText())
+                .as("dot notation reassembles nested claims")
+                .isEqualTo("Berlin");
+        assertThat(credential.get("claims").get("address").get("postal_code").asText())
+                .as("digit strings stay strings")
+                .isEqualTo("10409");
         assertThat(credential.get("sdJwt").asText()).contains("~");
     }
 

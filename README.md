@@ -52,7 +52,7 @@ Playwright and similar frameworks can rely on these selectors.
 | `#present-credential`, `#edit-and-present`, `#cancel-presentation` | Actions on the picker |
 | `#edit-as-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
 | `#credential-id`, `#credential-name`, `#credential-vct`, `#validity-days` | Edit form header fields |
-| `#claim-<name>` | One input per claim on the edit form |
+| `#claim-<name>` | One input per claim on the edit form. Nested claims use dot notation, for example `claim-address.locality` |
 | `#new-claim-name`, `#new-claim-value`, `#add-claim` | Add a claim on the edit form |
 | `#issue-credential`, `#cancel-edit` | Edit form actions |
 | `#conformance-warnings`, `#form-error` | Warning and error containers |
