@@ -16,15 +16,13 @@ services:
     volumes:
       - ../../../keycloak-extension-oid4vp/core/target/keycloak-extension-oid4vp.jar:/opt/keycloak/providers/keycloak-extension-oid4vp.jar:ro
       - ./realm-wallet-demo.json:/opt/keycloak/data/import/realm-wallet-demo.json:ro
-    post_start:
-      # allow the admin console over plain http even when requests arrive from a non-local address
-      - command:
-          - /bin/sh
-          - -c
-          - |
-            for i in $(seq 1 60); do
-              /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master \
-                --user admin --password admin >/dev/null 2>&1 \
-                && /opt/keycloak/bin/kcadm.sh update realms/master -s sslRequired=NONE && exit 0
-              sleep 2
-            done
+    networks:
+      - keycloak
+
+# a private subnet keeps published-port source addresses private, so the admin console works
+# over plain http with the default sslRequired=external of the master realm
+networks:
+  keycloak:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

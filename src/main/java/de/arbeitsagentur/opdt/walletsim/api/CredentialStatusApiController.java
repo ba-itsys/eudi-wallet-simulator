@@ -4,9 +4,9 @@ import de.arbeitsagentur.opdt.walletsim.api.CredentialResponse.StatusReference;
 import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
-import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
 import java.net.URI;
-import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,16 +27,16 @@ public class CredentialStatusApiController {
 
     public record StatusChangeRequest(int status) {}
 
+    private static final Logger LOG = LoggerFactory.getLogger(CredentialStatusApiController.class);
+
     private final CredentialStore store;
     private final AppUrls urls;
-    private final ActivityLog activityLog;
     private final String basepath;
 
     public CredentialStatusApiController(
-            CredentialStore store, AppUrls urls, ActivityLog activityLog, @Value("${app.basepath:}") String basepath) {
+            CredentialStore store, AppUrls urls, @Value("${app.basepath:}") String basepath) {
         this.store = store;
         this.urls = urls;
-        this.activityLog = activityLog;
         this.basepath = basepath == null ? "" : basepath;
     }
 
@@ -61,10 +61,7 @@ public class CredentialStatusApiController {
         StoredCredential credential = requireCredential(id);
         store.setStatus(id, status);
         StatusReference reference = StatusReference.of(urls.statusListUri(), credential.statusIndex(), status);
-        activityLog.success(
-                "status",
-                "Set status " + reference.statusName() + " on credential " + id,
-                Map.of("idx", credential.statusIndex(), "status", status));
+        LOG.info("Set status {} on credential {} (idx {})", reference.statusName(), id, credential.statusIndex());
         return reference;
     }
 

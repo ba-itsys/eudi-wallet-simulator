@@ -6,7 +6,6 @@ import de.arbeitsagentur.opdt.walletsim.conformance.RequestObjectValidator;
 import de.arbeitsagentur.opdt.walletsim.conformance.ValidationMode;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
-import de.arbeitsagentur.opdt.walletsim.logging.ActivityLog;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.CredentialMatch;
@@ -22,6 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -41,13 +42,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class AuthorizeController {
 
+    private static final Logger LOG = LoggerFactory.getLogger(AuthorizeController.class);
+
     private final RequestObjectClient requestObjectClient;
     private final RequestObjectValidator validator;
     private final ConformanceSettings conformanceSettings;
     private final DcqlMatcher dcqlMatcher;
     private final SdJwtPresentationBuilder presentationBuilder;
     private final ResponseSubmitter responseSubmitter;
-    private final ActivityLog activityLog;
     private final CredentialEditForms editForms;
     private final WalletCredentialService credentialService;
 
@@ -58,7 +60,6 @@ public class AuthorizeController {
             DcqlMatcher dcqlMatcher,
             SdJwtPresentationBuilder presentationBuilder,
             ResponseSubmitter responseSubmitter,
-            ActivityLog activityLog,
             CredentialEditForms editForms,
             WalletCredentialService credentialService) {
         this.requestObjectClient = requestObjectClient;
@@ -67,7 +68,6 @@ public class AuthorizeController {
         this.dcqlMatcher = dcqlMatcher;
         this.presentationBuilder = presentationBuilder;
         this.responseSubmitter = responseSubmitter;
-        this.activityLog = activityLog;
         this.editForms = editForms;
         this.credentialService = credentialService;
     }
@@ -77,14 +77,10 @@ public class AuthorizeController {
             @RequestParam("client_id") String clientId, @RequestParam("request_uri") String requestUri, Model model) {
         String requestObjectJwt = requestObjectClient.fetch(requestUri);
         AuthorizationRequest request = AuthorizationRequest.parse(requestObjectJwt);
-        activityLog.success(
-                "presentation",
-                "Received authorization request from " + request.clientId(),
-                Map.of("request_uri", requestUri, "request_object", requestObjectJwt));
+        LOG.info("Received authorization request from {} via {}", request.clientId(), requestUri);
 
         List<Finding> findings = validator.validate(clientId, request);
-        findings.forEach(finding -> activityLog.warning(
-                "presentation", "Request does not conform to OID4VP: " + finding.message(), Map.of()));
+        findings.forEach(finding -> LOG.warn("Request does not conform to OID4VP: {}", finding.message()));
         if (conformanceSettings.mode() == ValidationMode.STRICT && !findings.isEmpty()) {
             return refuseNonConformantRequest(request, findings, model);
         }
@@ -116,10 +112,7 @@ public class AuthorizeController {
             throw new InvalidRequestException("No credential in this wallet matches the verifier's query");
         }
         SubmissionResult result = responseSubmitter.submitVpToken(request, presentations);
-        activityLog.success(
-                "presentation",
-                "Presented credentials " + selectedCredentials + " to " + request.clientId(),
-                Map.of("selected_credentials", selectedCredentials));
+        LOG.info("Presented credentials {} to {}", selectedCredentials, request.clientId());
         return complete(result, model);
     }
 
@@ -170,10 +163,7 @@ public class AuthorizeController {
             String presentation = presentationBuilder.build(
                     match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce());
             SubmissionResult result = responseSubmitter.submitVpToken(request, Map.of(slot.queryId(), presentation));
-            activityLog.success(
-                    "presentation",
-                    "Presented ad-hoc credential " + credential.id() + " to " + request.clientId(),
-                    Map.of("disclosed_claims", match.claimsToDisclose()));
+            LOG.info("Presented ad-hoc credential {} to {}", credential.id(), request.clientId());
             return complete(result, model);
         }
         model.addAttribute("findings", List.of());
@@ -192,7 +182,7 @@ public class AuthorizeController {
         AuthorizationRequest request = AuthorizationRequest.parse(flowState);
         SubmissionResult result =
                 responseSubmitter.submitError(request, "access_denied", "The user cancelled the presentation");
-        activityLog.success("presentation", "Cancelled presentation for " + request.clientId(), Map.of());
+        LOG.info("Cancelled presentation for {}", request.clientId());
         return complete(result, model);
     }
 
@@ -204,11 +194,10 @@ public class AuthorizeController {
                 responseSubmitter.submitError(request, "invalid_request", description);
                 errorSent = true;
             } catch (InvalidRequestException e) {
-                activityLog.error("presentation", "Could not deliver error response: " + e.getMessage(), Map.of());
+                LOG.error("Could not deliver error response: {}", e.getMessage());
             }
         }
-        activityLog.error(
-                "presentation", "Refused non-conformant request in strict mode from " + request.clientId(), Map.of());
+        LOG.error("Refused non-conformant request in strict mode from {}", request.clientId());
         model.addAttribute(
                 "errorMessage",
                 "The verifier request violates OID4VP conformance (strict mode)."
@@ -254,7 +243,7 @@ public class AuthorizeController {
 
     @ExceptionHandler(InvalidRequestException.class)
     public String invalidRequest(InvalidRequestException exception, Model model) {
-        activityLog.error("presentation", exception.getMessage(), Map.of());
+        LOG.error("Presentation flow failed: {}", exception.getMessage());
         model.addAttribute("errorMessage", exception.getMessage());
         return "error_view";
     }
