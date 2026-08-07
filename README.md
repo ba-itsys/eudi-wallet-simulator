@@ -107,13 +107,13 @@ selectors above.
 | Property | Default | Purpose |
 |---|---|---|
 | `app.base-url` | `http://localhost:8080` | External base URL embedded in issued tokens |
-| `app.conformance.mode` | `debug` | `debug` warns and continues. `strict` refuses non conformant requests |
+| `app.mode` | `debug` | `debug` warns and continues. `strict` refuses non conformant requests |
 | `app.pki.dir` | `data/pki` | PEM directory for the persisted CA, issuer, wallet provider and registrar keys |
 | `app.resources.credentials` | `classpath:credentials.yml` | Pre defined credential seed. Any Spring resource works, for example `file:my-credentials.yml` |
 | `app.basepath` | *(empty)* | URL prefix when deployed behind a path rewriting ingress |
 | `server.port` | `8080` | HTTP port |
 
-Environment variable form: `APP_BASEURL`, `APP_CONFORMANCE_MODE`, `SERVER_PORT`.
+Environment variable form: `APP_BASEURL`, `APP_MODE`, `SERVER_PORT`.
 
 Credentials, ad hoc changes and revocations are held in memory and reset on restart. The PKI
 persists.
@@ -129,8 +129,7 @@ persists.
 | `GET /trust-lists/credentials`, `GET /trust-lists/wallet-providers` | ETSI TS 119 602 LoTE JWTs |
 | `GET /api/registration-certificates?client_id=…&purpose=…` | Issues an `rc-rp+jwt` and the matching `verifierInfo` value |
 | `GET /api/wallet-attestation?client_id=…&aud=…` | OAuth client attestation and PoP pair |
-| `GET /api/config`, `PUT /api/config/conformance` `{"mode":"strict"}`, `DELETE …/conformance` | Conformance mode at runtime |
-| `GET /api/log`, `DELETE /api/log` | Activity log of all protocol interactions |
+| `GET /api/config` | Effective configuration, for example the conformance mode |
 
 ## Development
 

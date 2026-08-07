@@ -15,14 +15,14 @@ fail() {
   exit 1
 }
 
-echo "1/6 Opening Keycloak account console login..."
+echo "1/5 Opening Keycloak account console login..."
 LOGIN_PAGE=$(curl -sSL -c "$COOKIES" -b "$COOKIES" \
   "${KEYCLOAK_URL}/realms/wallet-demo/protocol/openid-connect/auth?client_id=account-console&redirect_uri=${KEYCLOAK_URL}/realms/wallet-demo/account/&response_type=code&scope=openid&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256" \
   | tr '\n' ' ')
 IDP_LINK=$(printf '%s' "$LOGIN_PAGE" | grep -o 'id="social-oid4vp"[^>]*' | grep -o 'href="[^"]*"' | head -1 | sed 's/href="//;s/"$//' | sed 's/&amp;/\&/g')
 [ -n "$IDP_LINK" ] || fail "no social-oid4vp link on the login page"
 
-echo "2/6 Following the wallet identity provider..."
+echo "2/5 Following the wallet identity provider..."
 WALLET_PAGE=$(curl -sSL -c "$COOKIES" -b "$COOKIES" "${KEYCLOAK_URL}${IDP_LINK}" | tr '\n' ' ')
 WALLET_URL=$(printf '%s' "$WALLET_PAGE" | grep -o 'id="oid4vp-open-wallet"[^>]*' | grep -o 'href="[^"]*"' | head -1 | sed 's/href="//;s/"$//' | sed 's/&amp;/\&/g')
 [ -n "$WALLET_URL" ] || fail "no oid4vp-open-wallet link on the wallet page"
@@ -31,7 +31,7 @@ case "$WALLET_URL" in
   *) fail "wallet URL does not point at the simulator: $WALLET_URL" ;;
 esac
 
-echo "3/6 Opening the simulator credential picker..."
+echo "3/5 Opening the simulator credential picker..."
 PICKER=$(curl -sS "$WALLET_URL")
 printf '%s' "$PICKER" | grep -q 'data-credential-id="pid-maria-neumann"' || fail "picker does not offer the PID credential"
 FLOW_STATE=$(printf '%s' "$PICKER" | grep -o 'name="flowState" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"$//')
@@ -40,7 +40,7 @@ QUERY_ID=$(printf '%s' "$PICKER" | grep -o 'id="select-[^"]*-pid-maria-neumann"'
   | sed 's/id="select-//;s/-pid-maria-neumann"//')
 [ -n "$QUERY_ID" ] || fail "no selection group for the PID credential on the picker"
 
-echo "4/6 Presenting the credential..."
+echo "4/5 Presenting the credential..."
 REDIRECT=$(curl -sS -o /dev/null -w '%{redirect_url}' \
   --data-urlencode "selection[${QUERY_ID}]=pid-maria-neumann" \
   --data-urlencode "flowState=${FLOW_STATE}" \
@@ -50,16 +50,12 @@ case "$REDIRECT" in
   *) fail "submit did not redirect to the verifier complete-auth URL: '$REDIRECT'" ;;
 esac
 
-echo "5/6 Completing the login in the browser session..."
+echo "5/5 Completing the login in the browser session..."
 FINAL_URL=$(curl -sSL -c "$COOKIES" -b "$COOKIES" -o "${WORK_DIR}/final.html" -w '%{url_effective}' "$REDIRECT")
 case "$FINAL_URL" in
   *"/realms/wallet-demo/account"*) ;;
   *) grep -qi "update account information\|firstBrokerLogin" "${WORK_DIR}/final.html" \
       || fail "login did not reach the account console or first-broker-login page: $FINAL_URL" ;;
 esac
-
-echo "6/6 Verifying the simulator logged the presentation..."
-curl -sS "${SIMULATOR_URL}/api/log" | grep -q "pid-maria-neumann" \
-  || fail "simulator activity log has no presentation entry"
 
 echo "PASS: full same-device login flow via keycloak-extension-oid4vp succeeded."

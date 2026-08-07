@@ -30,8 +30,7 @@ spring:
 app:
   basepath:
   base-url: "http://localhost:8080"
-  conformance:
-    mode: "debug"
+  mode: "debug"
   pki:
     dir: "data/pki"
   env: "localDEV"
