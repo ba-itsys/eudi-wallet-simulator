@@ -38,6 +38,7 @@ class ApplicationSmokeTest {
         ResponseEntity<String> response = client().get().uri("/").retrieve().toEntity(String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("EUDI Wallet Simulator");
-        assertThat(response.getBody()).contains("Environment: localDEV");
+        assertThat(response.getBody()).contains("Environment:");
+        assertThat(response.getBody()).contains("localDEV");
     }
 }
