@@ -3,9 +3,9 @@
 <head data-th-insert="~{fragments/snippets :: head}">
     <title>EUDI Wallet Simulator</title>
 </head>
-<body class="d-flex flex-column min-vh-100">
+<body>
 <nav data-th-replace="~{fragments/snippets :: navbar}"></nav>
-<div class="container my-4">
+<div class="container">
     <h1>Present credentials</h1>
     <p class="text-muted">
         Verifier <code data-th-text="${verifierClientId}">client id</code> requests a credential presentation.
@@ -28,10 +28,10 @@
 
         <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.matches)}">
             <h4 data-th-text="'Credentials for query ' + ${slot.queryId}">Credentials</h4>
-            <div class="row row-cols-1 row-cols-md-3 g-2 mb-3">
+            <div class="row row-cols-3 g-2 mb-3">
                 <div class="col" data-th-each="match, iterStat : ${slot.matches}">
-                    <div class="card h-100" data-th-attr="data-credential-id=${match.credential.id}">
-                        <div class="card-body form-check">
+                    <div class="card p-2 h-100" data-th-attr="data-credential-id=${match.credential.id}">
+                        <div class="form-check">
                             <input class="form-check-input" type="radio"
                                    data-th-name="'selection[' + ${slot.queryId} + ']'"
                                    data-th-id="'select-' + ${slot.queryId} + '-' + ${match.credential.id}"
