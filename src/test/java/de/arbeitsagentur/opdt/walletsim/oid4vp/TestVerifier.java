@@ -45,8 +45,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Minimal in-JVM OID4VP verifier: serves a signed request object on request_uri and captures the
- * wallet's direct_post response, answering with a same-device redirect_uri like
- * keycloak-extension-oid4vp does.
+ * wallet's direct_post response, answering with a same-device redirect_uri.
  */
 public final class TestVerifier implements AutoCloseable {
 

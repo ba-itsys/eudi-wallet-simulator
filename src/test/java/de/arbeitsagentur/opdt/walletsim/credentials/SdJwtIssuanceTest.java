@@ -2,17 +2,16 @@ package de.arbeitsagentur.opdt.walletsim.credentials;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.authlete.sd.Disclosure;
+import com.authlete.sd.SDObjectDecoder;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
-import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
-import java.util.Base64;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -21,8 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 /**
  * Verifies issued SD-JWT VCs from the outside: signature against the x5c leaf, chain to the
- * simulator CA, disclosure digests, holder binding key and status list reference — the same checks
- * the keycloak-extension-oid4vp verifier performs.
+ * simulator CA, disclosure digests, holder binding key and status list reference, mirroring what verifiers check.
  */
 @SpringBootTest
 class SdJwtIssuanceTest {
@@ -82,22 +80,15 @@ class SdJwtIssuanceTest {
         assertThat(statusList.get("uri")).asString().endsWith("/status-list");
         assertThat(((Number) statusList.get("idx")).intValue()).isGreaterThanOrEqualTo(0);
 
-        // every disclosure digest must be present in the issuer JWT _sd array
-        assertThat(claims.get("_sd_alg")).isEqualTo("sha-256");
-        @SuppressWarnings("unchecked")
-        List<String> sdDigests = (List<String>) claims.get("_sd");
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        // all disclosures decode back to the original claims, including nested structures
+        List<Disclosure> disclosures = new ArrayList<>();
         for (int i = 1; i < parts.length; i++) {
-            String expected = Base64URL.encode(digest.digest(parts[i].getBytes(StandardCharsets.US_ASCII)))
-                    .toString();
-            assertThat(sdDigests).contains(expected);
+            disclosures.add(Disclosure.parse(parts[i]));
         }
-
-        // disclosures cover the seed claims, e.g. family_name
-        List<String> disclosedClaimNames = List.of(parts).subList(1, parts.length).stream()
-                .map(d -> new String(Base64.getUrlDecoder().decode(d), StandardCharsets.UTF_8))
-                .toList();
-        assertThat(disclosedClaimNames).anyMatch(d -> d.contains("\"family_name\""));
+        Map<String, Object> decoded = new SDObjectDecoder().decode(claims, disclosures);
+        assertThat(decoded.get("family_name")).isEqualTo("Neumann");
+        assertThat(asMap(decoded.get("address")).get("locality")).isEqualTo("Berlin");
+        assertThat((List<?>) decoded.get("nationalities")).isEqualTo(List.of("DE"));
     }
 
     private StoredCredential anyPredefinedCredential() {

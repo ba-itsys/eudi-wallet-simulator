@@ -42,7 +42,7 @@
                                 <strong data-th-text="${match.credential.name}">Credential</strong><br/>
                                 <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
                                 <small>Disclosed claims:
-                                    <span data-th-text="${#strings.listJoin(match.claimsToDisclose, ', ')}">claims</span>
+                                    <span data-th-text="${#strings.listJoin(match.claimsToDiscloseDisplay, ', ')}">claims</span>
                                 </small><br/>
                                 <small class="text-muted">ID:</small> <code data-th-text="${match.credential.id}">id</code>
                             </label>

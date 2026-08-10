@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,7 +24,17 @@ import org.springframework.stereotype.Component;
 public class DcqlMatcher {
 
     public record CredentialMatch(
-            String credentialQueryId, StoredCredential credential, List<String> claimsToDisclose) {}
+            String credentialQueryId, StoredCredential credential, List<List<Object>> claimsToDisclose) {
+
+        // dot notation labels for the picker, null steps render as *
+        public List<String> claimsToDiscloseDisplay() {
+            return claimsToDisclose.stream()
+                    .map(path -> path.stream()
+                            .map(step -> step == null ? "*" : String.valueOf(step))
+                            .collect(Collectors.joining(".")))
+                    .toList();
+        }
+    }
 
     public record QuerySlot(String queryId, List<CredentialMatch> matches) {}
 
@@ -108,7 +119,7 @@ public class DcqlMatcher {
                                 !matchesByQuery.getOrDefault(id, List.of()).isEmpty())));
     }
 
-    private Optional<List<String>> match(DcqlQuery.CredentialQuery query, StoredCredential credential) {
+    private Optional<List<List<Object>>> match(DcqlQuery.CredentialQuery query, StoredCredential credential) {
         if (!CredentialDefinition.FORMAT_SD_JWT_VC.equals(query.format())) {
             return Optional.empty();
         }
@@ -121,15 +132,15 @@ public class DcqlMatcher {
         return claimsToDisclose(query, credential);
     }
 
-    private static Optional<List<String>> claimsToDisclose(
+    private static Optional<List<List<Object>>> claimsToDisclose(
             DcqlQuery.CredentialQuery query, StoredCredential credential) {
         if (query.claims().isEmpty()) {
-            return Optional.of(List.copyOf(credential.claims().keySet()));
+            return Optional.of(credential.claims().keySet().stream()
+                    .map(name -> List.<Object>of(name))
+                    .toList());
         }
         if (query.claimSets().isEmpty()) {
-            return allResolve(query.claims(), credential)
-                    ? Optional.of(topLevelNames(query.claims()))
-                    : Optional.empty();
+            return allResolve(query.claims(), credential) ? Optional.of(claimPaths(query.claims())) : Optional.empty();
         }
         Map<String, DcqlQuery.ClaimQuery> claimsById = new LinkedHashMap<>();
         query.claims().forEach(claim -> claimsById.put(claim.id(), claim));
@@ -139,7 +150,7 @@ public class DcqlMatcher {
                     .filter(Objects::nonNull)
                     .toList();
             if (optionClaims.size() == option.size() && allResolve(optionClaims, credential)) {
-                return Optional.of(topLevelNames(optionClaims));
+                return Optional.of(claimPaths(optionClaims));
             }
         }
         return Optional.empty();
@@ -149,10 +160,10 @@ public class DcqlMatcher {
         return claims.stream().allMatch(claim -> resolvesInClaims(claim.path(), credential.claims()));
     }
 
-    private static List<String> topLevelNames(List<DcqlQuery.ClaimQuery> claims) {
+    private static List<List<Object>> claimPaths(List<DcqlQuery.ClaimQuery> claims) {
         return claims.stream()
-                .map(DcqlQuery.ClaimQuery::topLevelClaimName)
-                .filter(Objects::nonNull)
+                .map(DcqlQuery.ClaimQuery::path)
+                .filter(path -> !path.isEmpty())
                 .distinct()
                 .toList();
     }

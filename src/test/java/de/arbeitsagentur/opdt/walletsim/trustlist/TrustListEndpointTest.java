@@ -21,8 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
 /**
- * The trust list JWTs must have the exact LoTE shape the keycloak-extension-oid4vp trust list
- * provider parses: services keyed by ServiceTypeIdentifier suffix (Issuance/Revocation) carrying
+ * The trust list JWTs must have the LoTE shape ETSI trust list consumers parse: services keyed by ServiceTypeIdentifier suffix (Issuance/Revocation) carrying
  * base64-DER certificates, a matching LoTEType, and a future NextUpdate.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

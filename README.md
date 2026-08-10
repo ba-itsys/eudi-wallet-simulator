@@ -2,8 +2,9 @@
 
 A web based EUDI wallet for testing OID4VP verifiers. There is no issuance and no custom URL
 scheme. The verifier's wallet link opens a credential picker in the browser. The simulator answers
-with a signed SD-JWT VC presentation. Built for testing
-[keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp).
+with a signed SD-JWT VC presentation. It works with any OID4VP verifier. A ready to run example
+with [keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp) is
+included.
 
 ## Quickstart
 
