@@ -55,7 +55,7 @@ public class CredentialStatusApiController {
     }
 
     private StatusReference applyStatus(String id, int status) {
-        if (status < 0 || status > 255) {
+        if (status != 0 && status != 1) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST);
         }
         StoredCredential credential = requireCredential(id);
