@@ -10,7 +10,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Issues relying-party registration certificates. The response contains the raw rc-rp+jwt and the
- * ready-to-paste value for the keycloak-extension-oid4vp {@code verifierInfo} configuration.
+ * ready-to-paste value for a verifier's verifier_info configuration.
  */
 @RestController
 public class RegistrationCertificateApiController {

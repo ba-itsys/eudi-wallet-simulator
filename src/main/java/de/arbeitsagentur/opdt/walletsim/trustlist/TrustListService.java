@@ -18,8 +18,8 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
- * Builds ETSI TS 119 602 LoTE trust list JWTs in the exact JSON shape the
- * keycloak-extension-oid4vp trust list provider parses. Lists are signed with the CA key; the
+ * Builds ETSI TS 119 602 LoTE trust list JWTs in the JSON shape ETSI trust list consumers
+ * parse. Lists are signed with the CA key; the
  * services carry both the CA (PKIX anchor) and the signing leaf (direct pin) so either trust
  * resolution mode works.
  */

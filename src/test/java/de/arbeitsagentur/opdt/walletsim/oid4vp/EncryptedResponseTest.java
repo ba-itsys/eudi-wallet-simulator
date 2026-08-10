@@ -21,7 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * direct_post.jwt: the authorization response is a JWE encrypted to the verifier's ephemeral key
  * from client_metadata.jwks, echoing that key's kid so the verifier can resolve the flow without
- * a state form field — the contract keycloak-extension-oid4vp relies on.
+ * a state form field.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class EncryptedResponseTest {

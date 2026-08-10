@@ -14,8 +14,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Encrypts a direct_post.jwt authorization response as a JWE to the verifier's ephemeral key from
- * client_metadata.jwks. The JWE echoes the verifier key's kid, which
- * keycloak-extension-oid4vp uses to resolve the flow.
+ * client_metadata.jwks. The JWE echoes the verifier key's kid so the verifier can resolve the
+ * flow without a state form field.
  */
 @Component
 public class ResponseEncryptor {

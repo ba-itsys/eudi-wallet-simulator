@@ -21,7 +21,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Status list semantics as checked by keycloak-extension-oid4vp: typ statuslist+jwt, sub equal to
+ * Status list semantics as verifiers check them: typ statuslist+jwt, sub equal to
  * the list URI, zlib-deflated bitstring, and a revocation via the API flipping the credential's
  * bit on the next fetch.
  */

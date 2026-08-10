@@ -29,8 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Same-device OID4VP happy flow against an in-JVM test verifier: entry via web /authorize link,
  * credential picker, SD-JWT VP with KB-JWT posted via direct_post, browser redirected to the
- * verifier's redirect_uri. The returned presentation is verified with independent test-side
- * crypto, mirroring keycloak-extension-oid4vp's checks.
+ * verifier's redirect_uri. The returned presentation is verified with independent test-side crypto.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class VpFlowTest {
