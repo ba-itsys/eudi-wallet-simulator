@@ -37,7 +37,10 @@ HASH=$(openssl x509 -in verifier-cert.pem -outform DER \
 curl "http://localhost:8080/api/registration-certificates?client_id=x509_hash:${HASH}&purpose=Login"
 ```
 
-The response contains the raw certificate and the ready to paste `verifierInfo` value:
+The response contains the raw certificate and the ready to paste `verifierInfo` value. The
+`verifierInfo` member is a JSON array serialized into a string because verifier configuration
+fields usually take text. In the request object the claim is the plain array
+`[{"format": "jwt", "data": "…"}]` as defined by OID4VP 1.0 §5.1:
 
 ```json
 {
