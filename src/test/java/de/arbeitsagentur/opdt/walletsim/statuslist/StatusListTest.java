@@ -80,7 +80,7 @@ class StatusListTest {
         ResponseEntity<String> outOfRange = client().post()
                 .uri("/api/credentials/{id}/status", id)
                 .header("Content-Type", "application/json")
-                .body(Map.of("status", 300))
+                .body(Map.of("status", 2))
                 .retrieve()
                 .onStatus(status -> true, (request, response) -> {})
                 .toEntity(String.class);

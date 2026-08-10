@@ -22,10 +22,9 @@ import java.util.zip.Deflater;
 import org.springframework.stereotype.Service;
 
 /**
- * Builds the IETF Token Status List JWT over the credential store's status values. Bit width is
- * derived from the largest status value in the list so suspended (2) is not flattened; the
- * bitstring is padded to at least 16 bytes so a near-empty list does not identify its single
- * referenced credential.
+ * Builds the IETF Token Status List JWT over the credential store's status values. The simulator
+ * only covers VALID and INVALID, so the list is always 1 bit wide. The bitstring is padded to at
+ * least 16 bytes so a near-empty list does not identify its single referenced credential.
  */
 @Service
 public class StatusListService {
@@ -46,8 +45,7 @@ public class StatusListService {
     public String statusListJwt() {
         try {
             Map<Integer, Integer> statusValues = store.statusValues();
-            int bits = bitsPerStatus(statusValues);
-            byte[] bitstring = buildBitstring(statusValues, bits);
+            byte[] bitstring = buildBitstring(statusValues);
 
             Instant now = Instant.now();
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
@@ -60,7 +58,7 @@ public class StatusListService {
                             "status_list",
                             Map.of(
                                     "bits",
-                                    bits,
+                                    1,
                                     "lst",
                                     Base64URL.encode(deflate(bitstring)).toString()))
                     .build();
@@ -79,30 +77,13 @@ public class StatusListService {
         }
     }
 
-    private static int bitsPerStatus(Map<Integer, Integer> statusValues) {
-        int max =
-                statusValues.values().stream().mapToInt(Integer::intValue).max().orElse(0);
-        if (max <= 1) {
-            return 1;
-        }
-        if (max <= 3) {
-            return 2;
-        }
-        if (max <= 15) {
-            return 4;
-        }
-        return 8;
-    }
-
-    private static byte[] buildBitstring(Map<Integer, Integer> statusValues, int bits) {
+    private static byte[] buildBitstring(Map<Integer, Integer> statusValues) {
         int highestIndex =
                 statusValues.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
-        int requiredBytes = (highestIndex * bits) / 8 + 1;
-        byte[] bitstring = new byte[Math.max(requiredBytes, MIN_BITSTRING_BYTES)];
+        byte[] bitstring = new byte[Math.max(highestIndex / 8 + 1, MIN_BITSTRING_BYTES)];
         for (Map.Entry<Integer, Integer> entry : statusValues.entrySet()) {
             int idx = entry.getKey();
-            int bitOffset = (idx * bits) % 8;
-            bitstring[idx * bits / 8] |= (byte) ((entry.getValue() & ((1 << bits) - 1)) << bitOffset);
+            bitstring[idx / 8] |= (byte) ((entry.getValue() & 1) << (idx % 8));
         }
         return bitstring;
     }

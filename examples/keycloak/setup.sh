@@ -5,18 +5,13 @@
 set -eu
 
 EXAMPLE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-EXTENSION_DIR="${EXTENSION_DIR:-${EXAMPLE_DIR}/../../../keycloak-extension-oid4vp}"
-EXTENSION_JAR="${EXTENSION_DIR}/core/target/keycloak-extension-oid4vp.jar"
-
-if [ ! -d "$EXTENSION_DIR" ]; then
-  echo "keycloak-extension-oid4vp checkout not found at ${EXTENSION_DIR}" >&2
-  echo "Clone it next to this repository or set EXTENSION_DIR." >&2
-  exit 1
-fi
+EXTENSION_VERSION="${EXTENSION_VERSION:-0.7.0}"
+EXTENSION_JAR="${EXAMPLE_DIR}/keycloak-extension-oid4vp.jar"
 
 if [ ! -f "$EXTENSION_JAR" ]; then
-  echo "Building keycloak-extension-oid4vp snapshot jar..."
-  mvn -f "${EXTENSION_DIR}/pom.xml" -pl core -am package -DskipTests -q
+  echo "Downloading keycloak-extension-oid4vp ${EXTENSION_VERSION} from Maven Central..."
+  curl -fsSL -o "$EXTENSION_JAR" \
+    "https://repo1.maven.org/maven2/de/arbeitsagentur/opdt/keycloak-extension-oid4vp/${EXTENSION_VERSION}/keycloak-extension-oid4vp-${EXTENSION_VERSION}.jar"
 fi
 
 SIMULATOR_URL="${SIMULATOR_URL:-http://localhost:8081}"

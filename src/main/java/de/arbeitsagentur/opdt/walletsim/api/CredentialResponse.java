@@ -21,12 +21,7 @@ public record CredentialResponse(
         }
 
         private static String statusName(int status) {
-            return switch (status) {
-                case 0 -> "VALID";
-                case 1 -> "INVALID";
-                case 2 -> "SUSPENDED";
-                default -> "STATUS_" + status;
-            };
+            return status == 0 ? "VALID" : "INVALID";
         }
     }
 

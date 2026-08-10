@@ -14,7 +14,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ../../../keycloak-extension-oid4vp/core/target/keycloak-extension-oid4vp.jar:/opt/keycloak/providers/keycloak-extension-oid4vp.jar:ro
+      - ./keycloak-extension-oid4vp.jar:/opt/keycloak/providers/keycloak-extension-oid4vp.jar:ro
       - ./realm-wallet-demo.json:/opt/keycloak/data/import/realm-wallet-demo.json:ro
     post_start:
       # The master realm demands https when requests arrive from a non private address, which

@@ -124,7 +124,7 @@ persists.
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/credentials`, `GET /api/credentials/{id}` | Wallet content with SD-JWT and status |
-| `POST /api/credentials/{id}/status` `{"status": 1}` | Revoke with 1, reactivate with 0, or set any status type |
+| `POST /api/credentials/{id}/status` `{"status": 1}` | Revoke with 1, reactivate with 0 |
 | `GET /api/credentials/{id}/status` | Current status list value |
 | `GET /status-list` | IETF Token Status List (`statuslist+jwt`) |
 | `GET /trust-lists/credentials`, `GET /trust-lists/wallet-providers` | ETSI TS 119 602 LoTE JWTs |

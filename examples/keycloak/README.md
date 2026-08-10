@@ -1,8 +1,8 @@
 # Keycloak example
 
 Runs a real [keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp)
-verifier against this wallet simulator. The extension jar is the locally built snapshot from the
-sibling checkout.
+verifier against this wallet simulator. The setup downloads the released extension jar from
+Maven Central. Override the version with EXTENSION_VERSION when running setup.sh.
 
 ## Layout
 
@@ -20,7 +20,7 @@ Keycloak can fetch the trust list and the status list from inside the container.
 # 1. Start the simulator (from the repository root)
 SERVER_PORT=8081 APP_BASEURL=http://host.docker.internal:8081 mvn spring-boot:run
 
-# 2. Build the extension jar if needed, create the verifier certificate,
+# 2. Download the extension jar, create the verifier certificate,
 #    fetch a registration certificate from the simulator, render the realm
 ./setup.sh
 
