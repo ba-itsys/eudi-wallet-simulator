@@ -121,8 +121,51 @@ selectors above.
 
 Environment variable form: `APP_BASEURL`, `APP_MODE`, `SERVER_PORT`.
 
-Credentials, ad hoc changes and revocations are held in memory and reset on restart. The PKI
-persists.
+Credentials, ad hoc changes and revocations are held in memory and reset on restart. The key
+material persists, see below.
+
+## Key material
+
+On startup the simulator loads its PKI from `app.pki.dir`. Missing files are generated and
+written there, so the first start creates everything and later starts reuse it. Trust lists and
+registration certificates stay valid across restarts as long as the directory content is kept.
+
+The directory contains PEM files for five key pairs. `<name>` is one of `ca`, `issuer`,
+`wallet-provider`, `registrar` and `holder`.
+
+| File | Content |
+|---|---|
+| `<name>-key.pem` | PKCS#8 private key (P-256) |
+| `<name>-pub.pem` | Public key |
+| `<name>-cert.pem` | X.509 certificate (all except `holder`, issued by the `ca`) |
+
+`ca` is the trust anchor published in the trust lists. `issuer` signs credentials and the status
+list. `registrar` signs registration certificates. `wallet-provider` signs wallet attestations.
+`holder` is the wallet instance key used for attestation proof of possession.
+
+For Kubernetes, pre-supply the directory as a secret so the key material is stable from the
+first start on. Generate the files once by starting the simulator locally, then:
+
+```sh
+kubectl create secret generic wallet-simulator-pki --from-file=data/pki
+```
+
+```yaml
+# deployment excerpt
+containers:
+  - name: wallet-simulator
+    env:
+      - name: APP_PKI_DIR
+        value: /pki
+    volumeMounts:
+      - name: pki
+        mountPath: /pki
+        readOnly: true
+volumes:
+  - name: pki
+    secret:
+      secretName: wallet-simulator-pki
+```
 
 ## API
 
