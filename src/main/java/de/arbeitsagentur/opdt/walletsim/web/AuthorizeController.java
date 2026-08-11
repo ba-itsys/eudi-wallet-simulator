@@ -217,10 +217,14 @@ public class AuthorizeController {
 
     private String refuseNonConformantRequest(AuthorizationRequest request, List<Finding> findings, Model model) {
         String description = findings.stream().map(Finding::message).collect(Collectors.joining("; "));
+        String errorCode =
+                findings.stream().anyMatch(finding -> finding.message().contains("transaction_data"))
+                        ? "invalid_transaction_data"
+                        : "invalid_request";
         boolean errorSent = false;
         if (isUsableResponseUri(request.responseUri())) {
             try {
-                responseSubmitter.submitError(request, "invalid_request", description);
+                responseSubmitter.submitError(request, errorCode, description);
                 errorSent = true;
             } catch (InvalidRequestException e) {
                 LOG.error("Could not deliver error response: {}", e.getMessage());
@@ -230,7 +234,7 @@ public class AuthorizeController {
         model.addAttribute(
                 "errorMessage",
                 "The verifier request violates OID4VP conformance (strict mode)."
-                        + (errorSent ? " An invalid_request error response was sent to the verifier." : ""));
+                        + (errorSent ? " An " + errorCode + " error response was sent to the verifier." : ""));
         model.addAttribute("findings", findings);
         return "error_view";
     }

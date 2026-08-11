@@ -80,8 +80,10 @@ public class TrustedAuthorityMatcher {
         if (anchors.isEmpty()) {
             return false;
         }
-        X509Certificate leaf = chain.getFirst();
-        return anchors.stream().anyMatch(anchor -> leaf.equals(anchor) || isIssuedBy(leaf, anchor));
+        // OID4VP 1.0 §6.1.1.2: at least one certificate of the chain must match a list entry
+        List<X509Certificate> trustAnchors = anchors;
+        return chain.stream().anyMatch(certificate -> trustAnchors.stream()
+                .anyMatch(anchor -> certificate.equals(anchor) || isIssuedBy(certificate, anchor)));
     }
 
     private static boolean isIssuedBy(X509Certificate leaf, X509Certificate anchor) {

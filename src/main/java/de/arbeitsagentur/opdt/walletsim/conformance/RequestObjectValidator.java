@@ -61,7 +61,51 @@ public class RequestObjectValidator {
         validateClientIdPrefix(jwt, request, findings);
         validateDcqlStructure(request, findings);
         validateVerifierInfo(jwt, request, findings);
+        validateRequestObjectClaims(jwt, findings);
+        validateClientMetadata(request, findings);
         return findings;
+    }
+
+    private static void validateRequestObjectClaims(SignedJWT jwt, List<Finding> findings) {
+        try {
+            Map<String, Object> claims = jwt.getJWTClaimsSet().getClaims();
+            List<String> audience = jwt.getJWTClaimsSet().getAudience();
+            if (!audience.isEmpty() && !audience.contains("https://self-issued.me/v2")) {
+                findings.add(new Finding(
+                        "Request object aud must be https://self-issued.me/v2 for static discovery (OID4VP 1.0 §5.8), got: "
+                                + audience));
+            }
+            if (jwt.getJWTClaimsSet().getExpirationTime() != null
+                    && jwt.getJWTClaimsSet().getExpirationTime().toInstant().isBefore(java.time.Instant.now())) {
+                findings.add(new Finding("Request object is expired (exp in the past)"));
+            }
+            if (claims.get("redirect_uri") != null) {
+                findings.add(
+                        new Finding(
+                                "redirect_uri must not be present with response_uri and direct_post response modes (OID4VP 1.0 §8.2)"));
+            }
+            if (claims.get("transaction_data") != null) {
+                findings.add(
+                        new Finding(
+                                "transaction_data is not supported by this wallet and must be rejected (OID4VP 1.0 §5.1, error invalid_transaction_data)"));
+            }
+        } catch (ParseException e) {
+            findings.add(new Finding("Request object claims cannot be read: " + e.getMessage()));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void validateClientMetadata(AuthorizationRequest request, List<Finding> findings) {
+        Map<String, Object> clientMetadata = request.clientMetadata();
+        if (clientMetadata == null || !(clientMetadata.get("vp_formats_supported") instanceof Map<?, ?> formats)) {
+            findings.add(new Finding("client_metadata must contain vp_formats_supported (OID4VP 1.0 §5.1)"));
+            return;
+        }
+        if (!((Map<String, Object>) formats).containsKey("dc+sd-jwt")) {
+            findings.add(
+                    new Finding(
+                            "vp_formats_supported does not include dc+sd-jwt, the only format this wallet presents (OID4VP 1.0 §8.5 vp_formats_not_supported)"));
+        }
     }
 
     private void validateVerifierInfo(SignedJWT jwt, AuthorizationRequest request, List<Finding> findings) {
@@ -128,10 +172,21 @@ public class RequestObjectValidator {
                     "response_uri must be an absolute http(s) URL (OID4VP 1.0 §8.2), got: " + request.responseUri()));
         }
         if ("direct_post.jwt".equals(responseMode)) {
-            if (ClientMetadataKeys.encryptionKeys(request.clientMetadata()).isEmpty()) {
+            List<Map<String, Object>> keys = ClientMetadataKeys.encryptionKeys(request.clientMetadata());
+            if (keys.isEmpty()) {
                 findings.add(
                         new Finding(
                                 "response_mode direct_post.jwt requires a usable EC encryption key in client_metadata.jwks (OID4VP 1.0 §8.3)"));
+            } else {
+                Map<String, Object> key = keys.getFirst();
+                if (key.get("kid") == null) {
+                    findings.add(
+                            new Finding("Encryption keys in client_metadata.jwks must have a kid (OID4VP 1.0 §5.1)"));
+                }
+                if (key.get("alg") == null) {
+                    findings.add(
+                            new Finding("Encryption keys in client_metadata.jwks must have an alg (OID4VP 1.0 §8.3)"));
+                }
             }
         }
     }

@@ -2,6 +2,7 @@ package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.crypto.ECDHDecrypter;
 import com.nimbusds.jwt.EncryptedJWT;
 import java.net.URI;
@@ -69,11 +70,18 @@ class EncryptedResponseTest {
                     .as("JWE echoes the verifier encryption key kid")
                     .isEqualTo(verifier.responseEncryptionKey().getKeyID());
 
+            assertThat(encrypted.getHeader().getEncryptionMethod())
+                    .as("HAIP prefers A256GCM when the verifier supports it")
+                    .isEqualTo(EncryptionMethod.A256GCM);
             encrypted.decrypt(new ECDHDecrypter(verifier.responseEncryptionKey().toECPrivateKey()));
             Map<String, Object> payload = encrypted.getJWTClaimsSet().getClaims();
             assertThat(payload.get("state")).isEqualTo(verifier.state());
 
-            JsonNode vpToken = new ObjectMapper().readValue((String) payload.get("vp_token"), JsonNode.class);
+            assertThat(payload.get("vp_token"))
+                    .as("vp_token is a top-level JSON object inside the JWE (OID4VP 1.0 §8.3)")
+                    .isInstanceOf(Map.class);
+            JsonNode vpToken = new ObjectMapper()
+                    .readValue(new ObjectMapper().writeValueAsString(payload.get("vp_token")), JsonNode.class);
             assertThat(vpToken.get("pid").get(0).asText()).contains("~");
         }
     }
