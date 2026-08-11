@@ -40,12 +40,14 @@ curl "http://localhost:8080/api/registration-certificates?client_id=x509_hash:${
 The response contains the raw certificate and the ready to paste `verifierInfo` value. The
 `verifierInfo` member is a JSON array serialized into a string because verifier configuration
 fields usually take text. In the request object the claim is the plain array
-`[{"format": "jwt", "data": "…"}]` as defined by OID4VP 1.0 §5.1:
+`[{"format": "registrar_dataset", "data": "…"}]` as required by the amendment to
+IR (EU) 2024/2977. The data member is the base64url encoding of the signed registration
+certificate:
 
 ```json
 {
   "registrationCertificate": "eyJ0eXAiOiJyYy1ycCtqd3QiLCJ4NWMiOlsi...",
-  "verifierInfo": "[{\"format\":\"jwt\",\"data\":\"eyJ0eXAiOiJyYy1ycCtqd3QiLCJ4NWMi...\"}]"
+  "verifierInfo": "[{\"format\":\"registrar_dataset\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxeWND...\"}]"
 }
 ```
 
@@ -57,7 +59,7 @@ configuration:
   "alias": "oid4vp",
   "providerId": "oid4vp",
   "config": {
-    "verifierInfo": "[{\"format\":\"jwt\",\"data\":\"eyJ0eXAiOiJyYy1ycCtqd3QiLCJ4NWMi...\"}]"
+    "verifierInfo": "[{\"format\":\"registrar_dataset\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxeWND...\"}]"
   }
 }
 ```

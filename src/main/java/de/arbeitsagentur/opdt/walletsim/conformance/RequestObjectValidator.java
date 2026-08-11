@@ -7,6 +7,7 @@ import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ClientMetadataKeys;
 import de.arbeitsagentur.opdt.walletsim.registrar.RegistrationCertificateService;
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -82,15 +83,33 @@ public class RequestObjectValidator {
         }
         for (Object entry : attestations) {
             if (!(entry instanceof Map<?, ?> attestation)
-                    || !("jwt".equals(attestation.get("format")))
+                    || !("registrar_dataset".equals(attestation.get("format")))
                     || !(attestation.get("data") instanceof String data)) {
-                findings.add(new Finding(
-                        "Every verifier_info attestation needs format 'jwt' and string 'data' (OID4VP 1.0 §5.11)"));
+                findings.add(new Finding("Every verifier_info entry needs format 'registrar_dataset' and string"
+                        + " 'data' (IR (EU) 2024/2977, OID4VP 1.0 §5.1)"));
                 continue;
             }
+            if (attestation.get("credential_ids") != null) {
+                findings.add(
+                        new Finding(
+                                "The registrar_dataset verifier_info entry must not contain credential_ids (IR (EU) 2024/2977)"));
+            }
             registrationCertificates
-                    .validate(data, request.clientId())
+                    .validate(decodeRegistrationCertificate(data), request.clientId())
                     .ifPresent(violation -> findings.add(new Finding("verifier_info: " + violation)));
+        }
+    }
+
+    // data is the base64url encoding of the signed registration certificate; a raw compact JWT is
+    // tolerated for debugging
+    private static String decodeRegistrationCertificate(String data) {
+        if (data.contains(".")) {
+            return data;
+        }
+        try {
+            return new String(new Base64URL(data).decode(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return data;
         }
     }
 

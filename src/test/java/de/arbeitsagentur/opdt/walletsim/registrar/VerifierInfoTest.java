@@ -55,7 +55,7 @@ class VerifierInfoTest {
         assertThat(jwt.getJWTClaimsSet().getSubject()).isEqualTo("x509_san_dns:verifier.example.com");
         assertThat(jwt.getJWTClaimsSet().getStringClaim("purpose")).isEqualTo("Login");
 
-        assertThat(response.get("verifierInfo").asText()).contains("\"format\":\"jwt\"");
+        assertThat(response.get("verifierInfo").asText()).contains("\"format\":\"registrar_dataset\"");
     }
 
     @Test
