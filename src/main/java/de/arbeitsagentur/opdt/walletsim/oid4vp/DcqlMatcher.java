@@ -38,7 +38,19 @@ public class DcqlMatcher {
 
     public record QuerySlot(String queryId, List<CredentialMatch> matches) {}
 
-    public record PresentationPlan(List<QuerySlot> slots, boolean satisfiable) {}
+    // a credential set with more than one satisfiable option lets the user choose in the picker
+    public record SetChoice(int index, boolean required, List<List<String>> options) {
+
+        public List<String> optionLabels() {
+            return options.stream().map(option -> String.join(" + ", option)).toList();
+        }
+    }
+
+    public record PresentationPlan(
+            List<QuerySlot> slots,
+            List<String> alwaysRequestedQueryIds,
+            List<SetChoice> setChoices,
+            boolean satisfiable) {}
 
     private final CredentialStore store;
     private final TrustedAuthorityMatcher trustedAuthorityMatcher;
@@ -59,55 +71,62 @@ public class DcqlMatcher {
             }
             matchesByQuery.put(credentialQuery.id(), matches);
         }
-        Set<String> requestedQueryIds = selectQueryIds(query, matchesByQuery);
+        List<String> alwaysRequested = alwaysRequestedQueryIds(query);
+        List<SetChoice> setChoices = satisfiableSetChoices(query, matchesByQuery);
+        Set<String> displayedQueryIds = new LinkedHashSet<>(alwaysRequested);
+        setChoices.forEach(choice -> choice.options().forEach(displayedQueryIds::addAll));
+        if (displayedQueryIds.isEmpty() && query.credentialSets().isEmpty()) {
+            query.credentials().forEach(credentialQuery -> displayedQueryIds.add(credentialQuery.id()));
+        }
         List<QuerySlot> slots = new ArrayList<>();
-        boolean satisfiable = !requestedQueryIds.isEmpty();
+        boolean satisfiable = !displayedQueryIds.isEmpty();
         for (DcqlQuery.CredentialQuery credentialQuery : query.credentials()) {
-            if (!requestedQueryIds.contains(credentialQuery.id())) {
+            if (!displayedQueryIds.contains(credentialQuery.id())) {
                 continue;
             }
             List<CredentialMatch> matches = matchesByQuery.get(credentialQuery.id());
             slots.add(new QuerySlot(credentialQuery.id(), matches));
-            if (matches.isEmpty()) {
+            if (matches.isEmpty() && alwaysRequested.contains(credentialQuery.id())) {
                 satisfiable = false;
             }
         }
         if (hasUnsatisfiableRequiredSet(query, matchesByQuery)) {
             satisfiable = false;
         }
-        return new PresentationPlan(slots, satisfiable);
+        return new PresentationPlan(slots, alwaysRequested, setChoices, satisfiable);
     }
 
-    /**
-     * Query ids to present: all queries without credential_sets, otherwise the queries not
-     * referenced by any set plus the first satisfiable option of every set (required sets count
-     * toward satisfiability, optional sets are included only when satisfiable).
-     */
-    private static Set<String> selectQueryIds(DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
-        Set<String> selected = new LinkedHashSet<>();
+    // queries not referenced by any credential set are always requested
+    private static List<String> alwaysRequestedQueryIds(DcqlQuery query) {
         if (query.credentialSets().isEmpty()) {
-            query.credentials().forEach(credentialQuery -> selected.add(credentialQuery.id()));
-            return selected;
+            return query.credentials().stream()
+                    .map(DcqlQuery.CredentialQuery::id)
+                    .toList();
         }
         Set<String> referenced = new LinkedHashSet<>();
         query.credentialSets().forEach(set -> set.options().forEach(referenced::addAll));
-        query.credentials().stream()
+        return query.credentials().stream()
                 .map(DcqlQuery.CredentialQuery::id)
                 .filter(id -> !referenced.contains(id))
-                .forEach(selected::add);
-        for (DcqlQuery.CredentialSetQuery set : query.credentialSets()) {
-            Optional<List<String>> satisfiableOption = set.options().stream()
+                .toList();
+    }
+
+    // per credential set: the options whose queries all have at least one matching credential
+    private static List<SetChoice> satisfiableSetChoices(
+            DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
+        List<SetChoice> choices = new ArrayList<>();
+        for (int i = 0; i < query.credentialSets().size(); i++) {
+            DcqlQuery.CredentialSetQuery set = query.credentialSets().get(i);
+            List<List<String>> satisfiable = set.options().stream()
                     .filter(option -> option.stream()
                             .allMatch(id ->
                                     !matchesByQuery.getOrDefault(id, List.of()).isEmpty()))
-                    .findFirst();
-            if (satisfiableOption.isPresent()) {
-                selected.addAll(satisfiableOption.get());
-            } else if (set.required() && !set.options().isEmpty()) {
-                selected.addAll(set.options().getFirst());
+                    .toList();
+            if (!satisfiable.isEmpty()) {
+                choices.add(new SetChoice(i, set.required(), satisfiable));
             }
         }
-        return selected;
+        return choices;
     }
 
     private static boolean hasUnsatisfiableRequiredSet(

@@ -26,6 +26,28 @@
             No credential in this wallet matches the verifier's query.
         </div>
 
+        <div data-th-each="choice : ${setChoices}" data-th-if="${choice.options.size() > 1 or !choice.required}">
+            <h4>The verifier accepts alternatives</h4>
+            <div class="form-check" data-th-each="label, optStat : ${choice.optionLabels}">
+                <input class="form-check-input" type="radio"
+                       data-th-name="'setOption[' + ${choice.index} + ']'"
+                       data-th-id="'set-option-' + ${choice.index} + '-' + ${optStat.index}"
+                       data-th-value="${optStat.index}"
+                       data-th-checked="${optStat.first}"/>
+                <label class="form-check-label"
+                       data-th-for="'set-option-' + ${choice.index} + '-' + ${optStat.index}"
+                       data-th-text="'Present ' + ${label}">option</label>
+            </div>
+            <div class="form-check mb-3" data-th-unless="${choice.required}">
+                <input class="form-check-input" type="radio"
+                       data-th-name="'setOption[' + ${choice.index} + ']'"
+                       data-th-id="'set-option-' + ${choice.index} + '-skip'"
+                       value="skip"/>
+                <label class="form-check-label"
+                       data-th-for="'set-option-' + ${choice.index} + '-skip'">Do not present</label>
+            </div>
+        </div>
+
         <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.matches)}">
             <h4 data-th-text="'Credentials for query ' + ${slot.queryId}">Credentials</h4>
             <div class="row row-cols-3 g-2 mb-3">

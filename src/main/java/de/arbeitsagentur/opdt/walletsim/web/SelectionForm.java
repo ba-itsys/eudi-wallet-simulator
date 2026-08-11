@@ -8,6 +8,7 @@ import java.util.Optional;
 public class SelectionForm {
 
     private Map<String, String> selection = new LinkedHashMap<>();
+    private Map<String, String> setOption = new LinkedHashMap<>();
     private String flowState;
 
     public Map<String, String> getSelection() {
@@ -16,6 +17,14 @@ public class SelectionForm {
 
     public void setSelection(Map<String, String> selection) {
         this.selection = selection;
+    }
+
+    public Map<String, String> getSetOption() {
+        return setOption;
+    }
+
+    public void setSetOption(Map<String, String> setOption) {
+        this.setOption = setOption;
     }
 
     public String getFlowState() {

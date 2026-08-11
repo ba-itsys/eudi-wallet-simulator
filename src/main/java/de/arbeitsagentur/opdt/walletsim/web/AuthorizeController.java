@@ -11,6 +11,7 @@ import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.CredentialMatch;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.PresentationPlan;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.QuerySlot;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.SetChoice;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlQuery;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.InvalidRequestException;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.RequestObjectClient;
@@ -18,8 +19,10 @@ import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter.SubmissionResult;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SdJwtPresentationBuilder;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,9 +96,13 @@ public class AuthorizeController {
     public String submit(@ModelAttribute SelectionForm form, Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
         PresentationPlan plan = plan(request);
+        Set<String> requestedQueryIds = requestedQueryIds(plan, form);
         Map<String, String> presentations = new LinkedHashMap<>();
         Map<String, String> selectedCredentials = new LinkedHashMap<>();
         for (QuerySlot slot : plan.slots()) {
+            if (!requestedQueryIds.contains(slot.queryId())) {
+                continue;
+            }
             String selectedId = form.getSelection().get(slot.queryId());
             CredentialMatch match = slot.matches().stream()
                     .filter(candidate -> candidate.credential().id().equals(selectedId))
@@ -114,6 +121,28 @@ public class AuthorizeController {
         SubmissionResult result = responseSubmitter.submitVpToken(request, presentations);
         LOG.info("Presented credentials {} to {}", selectedCredentials, request.clientId());
         return complete(result, model);
+    }
+
+    // the queries to answer: always requested ones plus the chosen option of every credential set
+    private static Set<String> requestedQueryIds(PresentationPlan plan, SelectionForm form) {
+        Set<String> requested = new LinkedHashSet<>(plan.alwaysRequestedQueryIds());
+        for (SetChoice choice : plan.setChoices()) {
+            String value = form.getSetOption().getOrDefault(String.valueOf(choice.index()), "0");
+            if ("skip".equals(value) && !choice.required()) {
+                continue;
+            }
+            int optionIndex;
+            try {
+                optionIndex = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                optionIndex = 0;
+            }
+            if (optionIndex < 0 || optionIndex >= choice.options().size()) {
+                optionIndex = 0;
+            }
+            requested.addAll(choice.options().get(optionIndex));
+        }
+        return requested;
     }
 
     @PostMapping("/authorize/edit")
@@ -214,6 +243,7 @@ public class AuthorizeController {
         PresentationPlan plan = plan(request);
         model.addAttribute("verifierClientId", request.clientId());
         model.addAttribute("slots", plan.slots());
+        model.addAttribute("setChoices", plan.setChoices());
         model.addAttribute("satisfiable", plan.satisfiable());
         model.addAttribute("flowState", request.rawRequestObject());
         return "presentation_select";
@@ -223,7 +253,7 @@ public class AuthorizeController {
         try {
             return dcqlMatcher.plan(DcqlQuery.from(request.dcqlQuery()));
         } catch (InvalidRequestException e) {
-            return new PresentationPlan(List.of(), false);
+            return new PresentationPlan(List.of(), List.of(), List.of(), false);
         }
     }
 

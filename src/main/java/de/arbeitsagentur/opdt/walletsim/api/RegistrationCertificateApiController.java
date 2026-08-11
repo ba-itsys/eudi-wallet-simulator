@@ -1,6 +1,8 @@
 package de.arbeitsagentur.opdt.walletsim.api;
 
+import com.nimbusds.jose.util.Base64URL;
 import de.arbeitsagentur.opdt.walletsim.registrar.RegistrationCertificateService;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +29,11 @@ public class RegistrationCertificateApiController {
             @RequestParam("client_id") String clientId,
             @RequestParam(name = "purpose", required = false) String purpose) {
         String jwt = registrationCertificates.issue(clientId, purpose);
-        String verifierInfo = objectMapper.writeValueAsString(List.of(Map.of("format", "jwt", "data", jwt)));
+        // IR (EU) 2024/2977 amendment: format registrar_dataset, data base64url of the signed
+        // registration certificate, no credential_ids
+        String data = Base64URL.encode(jwt.getBytes(StandardCharsets.UTF_8)).toString();
+        String verifierInfo =
+                objectMapper.writeValueAsString(List.of(Map.of("format", "registrar_dataset", "data", data)));
         return Map.of("registrationCertificate", jwt, "verifierInfo", verifierInfo);
     }
 }
