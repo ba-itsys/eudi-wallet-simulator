@@ -120,6 +120,29 @@ class VpFlowTest {
         }
     }
 
+    @Test
+    void crossDeviceCompletionRendersWhenNoRedirectUriIsReturned() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(DCQL_QUERY).withoutRedirectUri()) {
+            URI authorizeUrl = URI.create("http://localhost:" + port + "/authorize?client_id="
+                    + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
+                    + "&request_uri="
+                    + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
+            String flowState = extractHiddenField(
+                    client().get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
+
+            ResponseEntity<String> submit = client().post()
+                    .uri("/authorize/submit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
+                            + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .toEntity(String.class);
+
+            assertThat(submit.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(submit.getBody()).contains("Presentation sent");
+        }
+    }
+
     private void verifyPresentation(String presentation, TestVerifier verifier) throws Exception {
         String[] parts = presentation.split("~");
         assertThat(parts.length).as("issuer JWT, disclosures, KB-JWT").isGreaterThanOrEqualTo(3);

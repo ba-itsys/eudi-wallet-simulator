@@ -33,17 +33,17 @@ public class ResponseSubmitter {
     public SubmissionResult submitVpToken(AuthorizationRequest request, Map<String, String> presentationsByQueryId) {
         Map<String, List<String>> vpTokenEntries = new LinkedHashMap<>();
         presentationsByQueryId.forEach((queryId, presentation) -> vpTokenEntries.put(queryId, List.of(presentation)));
-        Map<String, String> parameters = new LinkedHashMap<>();
+        Map<String, Object> parameters = new LinkedHashMap<>();
         if (request.state() != null) {
             parameters.put("state", request.state());
         }
-        parameters.put("vp_token", objectMapper.writeValueAsString(vpTokenEntries));
+        parameters.put("vp_token", vpTokenEntries);
         return submit(request, parameters);
     }
 
     // OID4VP 1.0 §8.5: error responses go to the response_uri like any other authorization response
     public SubmissionResult submitError(AuthorizationRequest request, String error, String errorDescription) {
-        Map<String, String> parameters = new LinkedHashMap<>();
+        Map<String, Object> parameters = new LinkedHashMap<>();
         if (request.state() != null) {
             parameters.put("state", request.state());
         }
@@ -52,13 +52,15 @@ public class ResponseSubmitter {
         return submit(request, parameters);
     }
 
-    private SubmissionResult submit(AuthorizationRequest request, Map<String, String> parameters) {
+    private SubmissionResult submit(AuthorizationRequest request, Map<String, Object> parameters) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        if ("direct_post.jwt".equals(request.responseMode())
-                && !ClientMetadataKeys.encryptionKeys(request.clientMetadata()).isEmpty()) {
+        if ("direct_post.jwt".equals(request.responseMode())) {
+            // OID4VP 1.0 §8.3.1 allows only the response parameter, a fallback to unencrypted
+            // parameters would leak the presentation and be unparseable for the verifier
             form.add("response", responseEncryptor.encrypt(request, parameters));
         } else {
-            parameters.forEach(form::add);
+            parameters.forEach((name, value) ->
+                    form.add(name, value instanceof String text ? text : objectMapper.writeValueAsString(value)));
         }
         return submit(request.responseUri(), form);
     }

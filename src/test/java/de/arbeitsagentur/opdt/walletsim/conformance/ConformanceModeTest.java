@@ -60,6 +60,9 @@ class ConformanceModeTest {
                     client().get().uri(authorizeUri(verifier)).retrieve().toEntity(String.class);
 
             assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(picker.getBody())
+                    .as("the picker actually rendered")
+                    .contains("data-credential-id=\"pid-maria-neumann\"");
             assertThat(picker.getBody()).doesNotContain("conformance-warnings");
         }
     }

@@ -154,9 +154,8 @@ public class DcqlMatcher {
     private static Optional<List<List<Object>>> claimsToDisclose(
             DcqlQuery.CredentialQuery query, StoredCredential credential) {
         if (query.claims().isEmpty()) {
-            return Optional.of(credential.claims().keySet().stream()
-                    .map(name -> List.<Object>of(name))
-                    .toList());
+            // OID4VP 1.0 §6.4.1: absent claims requests no selectively disclosable claims
+            return Optional.of(List.of());
         }
         if (query.claimSets().isEmpty()) {
             return allResolve(query.claims(), credential) ? Optional.of(claimPaths(query.claims())) : Optional.empty();
@@ -176,7 +175,7 @@ public class DcqlMatcher {
     }
 
     private static boolean allResolve(List<DcqlQuery.ClaimQuery> claims, StoredCredential credential) {
-        return claims.stream().allMatch(claim -> resolvesInClaims(claim.path(), credential.claims()));
+        return claims.stream().allMatch(claim -> resolve(credential.claims(), claim.path(), 0, claim.values()));
     }
 
     private static List<List<Object>> claimPaths(List<DcqlQuery.ClaimQuery> claims) {
@@ -187,23 +186,36 @@ public class DcqlMatcher {
                 .toList();
     }
 
-    private static boolean resolvesInClaims(List<Object> path, Object claims) {
-        Object current = claims;
-        for (Object step : path) {
-            if (step instanceof String key && current instanceof Map<?, ?> map) {
-                current = map.get(key);
-            } else if (step instanceof Number index && current instanceof List<?> list) {
-                int i = index.intValue();
-                current = i >= 0 && i < list.size() ? list.get(i) : null;
-            } else if (step == null && current instanceof List<?> list) {
-                return !list.isEmpty();
-            } else {
-                return false;
-            }
-            if (current == null) {
-                return false;
-            }
+    // claims path pointer processing per OID4VP 1.0 §7.1.1: null fans out over all array elements
+    // and processing continues with the remaining components; a values list must match the
+    // resolved claim value (§6.4.1)
+    private static boolean resolve(Object current, List<Object> path, int position, List<Object> values) {
+        if (current == null) {
+            return false;
         }
-        return true;
+        if (position == path.size()) {
+            return values.isEmpty() || values.stream().anyMatch(value -> valueMatches(value, current));
+        }
+        Object step = path.get(position);
+        if (step instanceof String key && current instanceof Map<?, ?> map) {
+            return resolve(map.get(key), path, position + 1, values);
+        }
+        if (step instanceof Number index && current instanceof List<?> list) {
+            int i = index.intValue();
+            return i >= 0 && i < list.size() && resolve(list.get(i), path, position + 1, values);
+        }
+        if (step == null && current instanceof List<?> list) {
+            return list.stream().anyMatch(element -> resolve(element, path, position + 1, values));
+        }
+        return false;
+    }
+
+    private static boolean valueMatches(Object requested, Object actual) {
+        if (Objects.equals(requested, actual)) {
+            return true;
+        }
+        return requested instanceof Number
+                && actual instanceof Number
+                && String.valueOf(requested).equals(String.valueOf(actual));
     }
 }

@@ -77,7 +77,7 @@ class AdHocCredentialTest {
                         + "&claimValues%5Bgiven_name%5D=Ada"
                         + "&claimValues%5Bbirthdate%5D=1990-01-01"
                         + "&claimValues%5Baddress.locality%5D=Berlin"
-                        + "&claimValues%5Baddress.postal_code%5D=10409"
+                        + "&claimValues%5Baddress.postal_code%5D=%2210409%22"
                         + "&newClaimName=nickname&newClaimValue=Ady")
                 .retrieve()
                 .toEntity(String.class);
@@ -95,8 +95,10 @@ class AdHocCredentialTest {
         assertThat(credential.get("claims").get("address").get("locality").asText())
                 .as("dot notation reassembles nested claims")
                 .isEqualTo("Berlin");
+        assertThat(credential.get("claims").get("address").get("postal_code").isTextual())
+                .as("quoted digit strings stay strings")
+                .isTrue();
         assertThat(credential.get("claims").get("address").get("postal_code").asText())
-                .as("digit strings stay strings")
                 .isEqualTo("10409");
         assertThat(credential.get("sdJwt").asText()).contains("~");
     }

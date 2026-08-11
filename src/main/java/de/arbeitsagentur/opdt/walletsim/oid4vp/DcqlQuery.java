@@ -14,7 +14,7 @@ public record DcqlQuery(List<CredentialQuery> credentials, List<CredentialSetQue
             List<List<String>> claimSets,
             List<TrustedAuthority> trustedAuthorities) {}
 
-    public record ClaimQuery(String id, List<Object> path) {
+    public record ClaimQuery(String id, List<Object> path, List<Object> values) {
 
         // First path element, the top-level claim name deciding which disclosure to release.
         public String topLevelClaimName() {
@@ -69,8 +69,10 @@ public record DcqlQuery(List<CredentialQuery> credentials, List<CredentialSetQue
         return new CredentialQuery(id, format, vctValues, claims, claimSets, trustedAuthorities);
     }
 
+    @SuppressWarnings("unchecked")
     private static ClaimQuery toClaimQuery(Map<String, Object> claim) {
-        return new ClaimQuery((String) claim.get("id"), (List<Object>) castPath(claim.get("path")));
+        List<Object> values = claim.get("values") instanceof List<?> entries ? (List<Object>) entries : List.of();
+        return new ClaimQuery((String) claim.get("id"), castPath(claim.get("path")), values);
     }
 
     @SuppressWarnings("unchecked")

@@ -81,6 +81,9 @@ public final class TestVerifier implements AutoCloseable {
     private RequestCustomizer requestCustomizer = claims -> {};
     private ECKey responseEncryptionKey;
     private String verifierInfoJson;
+    private String requestObjectTyp = "oauth-authz-req+jwt";
+    private boolean signWithForeignKey;
+    private boolean omitRedirectUri;
 
     public TestVerifier(String dcqlQueryJson) throws Exception {
         this.dcqlQueryJson = dcqlQueryJson;
@@ -98,7 +101,8 @@ public final class TestVerifier implements AutoCloseable {
         server.createContext("/callback", exchange -> {
             String form = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             received.complete(new ReceivedResponse(parseForm(form)));
-            byte[] body = ("{\"redirect_uri\":\"" + redirectUri() + "\"}").getBytes(StandardCharsets.UTF_8);
+            byte[] body = (omitRedirectUri ? "{}" : "{\"redirect_uri\":\"" + redirectUri() + "\"}")
+                    .getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream out = exchange.getResponseBody()) {
@@ -110,6 +114,23 @@ public final class TestVerifier implements AutoCloseable {
 
     public TestVerifier withRequestCustomizer(RequestCustomizer customizer) {
         this.requestCustomizer = customizer;
+        return this;
+    }
+
+    public TestVerifier withRequestObjectTyp(String typ) {
+        this.requestObjectTyp = typ;
+        return this;
+    }
+
+    // signs the request object with a key that does not belong to the x5c certificate
+    public TestVerifier withForeignSignatureKey() {
+        this.signWithForeignKey = true;
+        return this;
+    }
+
+    // cross-device: the callback answers without a redirect_uri
+    public TestVerifier withoutRedirectUri() {
+        this.omitRedirectUri = true;
         return this;
     }
 
@@ -197,11 +218,14 @@ public final class TestVerifier implements AutoCloseable {
             claims.forEach(builder::claim);
             SignedJWT jwt = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.ES256)
-                            .type(new JOSEObjectType("oauth-authz-req+jwt"))
+                            .type(new JOSEObjectType(requestObjectTyp))
                             .x509CertChain(List.of(Base64.encode(certificate.getEncoded())))
                             .build(),
                     builder.build());
-            jwt.sign(new ECDSASigner((ECPrivateKey) keyPair.getPrivate()));
+            ECPrivateKey signingKey = signWithForeignKey
+                    ? (ECPrivateKey) generateKeyPair().getPrivate()
+                    : (ECPrivateKey) keyPair.getPrivate();
+            jwt.sign(new ECDSASigner(signingKey));
             return jwt.serialize();
         } catch (Exception e) {
             throw new IllegalStateException(e);

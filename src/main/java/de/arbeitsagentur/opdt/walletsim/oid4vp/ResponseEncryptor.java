@@ -22,7 +22,7 @@ public class ResponseEncryptor {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public String encrypt(AuthorizationRequest request, Map<String, String> responseParameters) {
+    public String encrypt(AuthorizationRequest request, Map<String, Object> responseParameters) {
         try {
             List<Map<String, Object>> keys = ClientMetadataKeys.encryptionKeys(request.clientMetadata());
             if (keys.isEmpty()) {
@@ -35,7 +35,7 @@ public class ResponseEncryptor {
             responseParameters.forEach(claims::claim);
 
             EncryptedJWT jwe = new EncryptedJWT(
-                    new JWEHeader.Builder(JWEAlgorithm.ECDH_ES, encryptionMethod(request.clientMetadata()))
+                    new JWEHeader.Builder(keyAlgorithm(verifierKey), encryptionMethod(request.clientMetadata()))
                             .keyID(verifierKey.getKeyID())
                             .build(),
                     claims.build());
@@ -48,13 +48,28 @@ public class ResponseEncryptor {
         }
     }
 
+    // OID4VP 1.0 §8.3: the JWE alg must equal the alg of the chosen verifier key
+    private static JWEAlgorithm keyAlgorithm(ECKey verifierKey) {
+        if (verifierKey.getAlgorithm() != null) {
+            return JWEAlgorithm.parse(verifierKey.getAlgorithm().getName());
+        }
+        return JWEAlgorithm.ECDH_ES;
+    }
+
+    // HAIP 1.0 §5: prefer A256GCM when the verifier supports it; the enc must come from the
+    // advertised list
     private static EncryptionMethod encryptionMethod(Map<String, Object> clientMetadata) {
-        if (clientMetadata != null
-                && clientMetadata.get("encrypted_response_enc_values_supported") instanceof List<?> supported
-                && !supported.isEmpty()
-                && "A256GCM".equals(supported.getFirst())) {
+        if (clientMetadata == null
+                || !(clientMetadata.get("encrypted_response_enc_values_supported") instanceof List<?> supported)) {
+            return EncryptionMethod.A128GCM;
+        }
+        if (supported.contains("A256GCM")) {
             return EncryptionMethod.A256GCM;
         }
-        return EncryptionMethod.A128GCM;
+        if (supported.contains("A128GCM")) {
+            return EncryptionMethod.A128GCM;
+        }
+        throw new InvalidRequestException(
+                "encrypted_response_enc_values_supported offers no encryption method this wallet supports");
     }
 }
