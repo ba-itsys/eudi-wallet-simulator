@@ -121,6 +121,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <systemPropertyVariables>
+                        <!-- tests must never touch the development key material in data/pki -->
                         <app.pki.dir>${project.build.directory}/test-pki</app.pki.dir>
                     </systemPropertyVariables>
                 </configuration>
