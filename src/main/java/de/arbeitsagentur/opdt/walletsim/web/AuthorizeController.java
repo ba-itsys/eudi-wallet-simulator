@@ -110,10 +110,14 @@ public class AuthorizeController {
                     .orElseThrow(() -> new InvalidRequestException(
                             "No matching credential selected for query '" + slot.queryId() + "'"));
             selectedCredentials.put(slot.queryId(), match.credential().id());
+            int claimSetIndex = chosenClaimSetIndex(form, slot.queryId());
             presentations.put(
                     slot.queryId(),
                     presentationBuilder.build(
-                            match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce()));
+                            match.credential(),
+                            match.claimsToDisclose(claimSetIndex),
+                            request.clientId(),
+                            request.nonce()));
         }
         if (presentations.isEmpty()) {
             throw new InvalidRequestException("No credential in this wallet matches the verifier's query");
@@ -121,6 +125,14 @@ public class AuthorizeController {
         SubmissionResult result = responseSubmitter.submitVpToken(request, presentations);
         LOG.info("Presented credentials {} to {}", selectedCredentials, request.clientId());
         return complete(result, model);
+    }
+
+    private static int chosenClaimSetIndex(SelectionForm form, String queryId) {
+        try {
+            return Integer.parseInt(form.getClaimSet().getOrDefault(queryId, "0"));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     // the queries to answer: always requested ones plus the chosen option of every credential set
@@ -190,7 +202,7 @@ public class AuthorizeController {
                 return editView(form, model);
             }
             String presentation = presentationBuilder.build(
-                    match.credential(), match.claimsToDisclose(), request.clientId(), request.nonce());
+                    match.credential(), match.claimsToDisclose(0), request.clientId(), request.nonce());
             SubmissionResult result = responseSubmitter.submitVpToken(request, Map.of(slot.queryId(), presentation));
             LOG.info("Presented ad-hoc credential {} to {}", credential.id(), request.clientId());
             return complete(result, model);

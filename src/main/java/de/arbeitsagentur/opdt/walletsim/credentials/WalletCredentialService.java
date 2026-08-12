@@ -32,6 +32,7 @@ public class WalletCredentialService {
                     definition.format(),
                     definition.vct(),
                     definition.claims(),
+                    definition.alwaysDisclosedClaims(),
                     sdJwt,
                     statusIndex,
                     holderKey,

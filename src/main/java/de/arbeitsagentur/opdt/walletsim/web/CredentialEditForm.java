@@ -14,6 +14,7 @@ public class CredentialEditForm {
     private String vct;
     private int validityDays = 365;
     private Map<String, String> claimValues = new LinkedHashMap<>();
+    private Map<String, Boolean> claimAlwaysDisclosed = new LinkedHashMap<>();
     private String newClaimName;
     private String newClaimValue;
     private String flowState;
@@ -56,6 +57,14 @@ public class CredentialEditForm {
 
     public void setClaimValues(Map<String, String> claimValues) {
         this.claimValues = claimValues;
+    }
+
+    public Map<String, Boolean> getClaimAlwaysDisclosed() {
+        return claimAlwaysDisclosed;
+    }
+
+    public void setClaimAlwaysDisclosed(Map<String, Boolean> claimAlwaysDisclosed) {
+        this.claimAlwaysDisclosed = claimAlwaysDisclosed;
     }
 
     public String getNewClaimName() {

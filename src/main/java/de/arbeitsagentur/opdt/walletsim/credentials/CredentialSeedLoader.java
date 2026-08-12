@@ -53,7 +53,11 @@ public class CredentialSeedLoader implements ApplicationRunner {
         if (claims == null || claims.isEmpty()) {
             throw new IllegalStateException("Credential '" + id + "' has no claims");
         }
-        return new CredentialDefinition(id, name, vct, validityDays, Map.copyOf(claims));
+        @SuppressWarnings("unchecked")
+        List<String> alwaysDisclosed = entry.get("alwaysDisclosedClaims") instanceof List<?> paths
+                ? paths.stream().map(String::valueOf).toList()
+                : List.of();
+        return new CredentialDefinition(id, name, vct, validityDays, Map.copyOf(claims), alwaysDisclosed);
     }
 
     private static String requireString(Map<String, Object> entry, String key) {

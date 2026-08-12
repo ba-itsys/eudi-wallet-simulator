@@ -89,10 +89,10 @@ class NestedDisclosureTest {
             assertThat(address)
                     .as("sibling claims of the requested nested path stay undisclosed")
                     .doesNotContainKeys("street_address", "postal_code");
-            assertThat(decoded).doesNotContainKey("birthdate");
-            assertThat((List<?>) decoded.get("nationalities"))
-                    .as("array values stay undisclosed, only the structure is visible")
-                    .isEmpty();
+            assertThat(decoded).doesNotContainKeys("birthdate", "nationalities");
+            assertThat(decoded)
+                    .as("always disclosed claims are plain members and stay visible")
+                    .containsEntry("issuing_country", "DE");
         }
     }
 

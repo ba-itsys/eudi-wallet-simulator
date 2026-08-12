@@ -159,9 +159,9 @@ public class RequestObjectValidator {
 
     private static void validateResponseMode(AuthorizationRequest request, List<Finding> findings) {
         String responseMode = request.responseMode();
-        if (responseMode == null || !(responseMode.equals("direct_post") || responseMode.equals("direct_post.jwt"))) {
-            findings.add(new Finding(
-                    "response_mode must be direct_post or direct_post.jwt for a web wallet (OID4VP 1.0 §8.2), got: "
+        if (!"direct_post.jwt".equals(responseMode)) {
+            findings.add(
+                    new Finding("response_mode must be direct_post.jwt, HAIP 1.0 §5 requires response encryption, got: "
                             + responseMode));
             return;
         }
@@ -171,8 +171,8 @@ public class RequestObjectValidator {
             findings.add(new Finding(
                     "response_uri must be an absolute http(s) URL (OID4VP 1.0 §8.2), got: " + request.responseUri()));
         }
-        if ("direct_post.jwt".equals(responseMode)) {
-            List<Map<String, Object>> keys = ClientMetadataKeys.encryptionKeys(request.clientMetadata());
+        List<Map<String, Object>> keys = ClientMetadataKeys.encryptionKeys(request.clientMetadata());
+        {
             if (keys.isEmpty()) {
                 findings.add(
                         new Finding(
