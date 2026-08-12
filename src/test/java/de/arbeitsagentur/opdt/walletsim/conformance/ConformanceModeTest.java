@@ -48,7 +48,7 @@ class ConformanceModeTest {
 
     @Test
     void conformantRequestShowsNoWarnings() throws Exception {
-        try (var verifier = TestVerifier.pidVerifier()) {
+        try (var verifier = TestVerifier.pidVerifier().withEncryptedResponses()) {
             String verifierInfo = client().get()
                     .uri("/api/registration-certificates?client_id={id}", verifier.clientId())
                     .retrieve()

@@ -17,8 +17,8 @@ A ready to run Keycloak verifier setup is in [`examples/keycloak`](examples/keyc
 ## Connecting your verifier
 
 1. Point the verifier's wallet URL at `http://localhost:8080/authorize`. The verifier appends
-   `client_id` and `request_uri`. Only the `x509_hash` client identifier prefix is accepted.
-   HAIP mandates it.
+   `client_id` and `request_uri`. HAIP is mandatory here, so only the `x509_hash` client
+   identifier prefix and the encrypted response mode `direct_post.jwt` are accepted.
 2. Configure the trust anchor. The verifier finds the credential issuers in the ETSI TS 119 602
    trust list at `GET /trust-lists/credentials`. Wallet providers are listed at
    `GET /trust-lists/wallet-providers`.
@@ -72,12 +72,19 @@ shows a complete working configuration.
 
 The home page shows all wallet credentials as cards. You can revoke and activate them, clone one
 as a template with *Edit as template*, or create one from scratch with *New credential*. Every
-claim is a form field. Nested claims use dot notation, for example address.locality.
+claim is a form field. Nested claims use dot notation, for example address.locality. A checkbox
+per claim marks it as always disclosed, which makes it a plain member of the credential body
+instead of a selectively disclosable one. In the seed file the same is expressed per credential
+with `alwaysDisclosedClaims`.
 
 During a verification the picker shows one selection group per requested DCQL credential query.
 The evaluation covers vct and claim matching, claim_sets in preference order, credential_sets
 combinations and trusted_authorities (aki and etsi_tl). Credentials that do not match are not
 offered. The answer is a multi entry vp_token when several queries are requested.
+When the verifier accepts alternatives, you choose the outcome instead of the wallet deciding.
+Credential set options are offered as a choice, optional sets can be skipped, and every
+satisfiable claim set of a query is listed for selection.
+
 *Present credential* answers directly. *Edit & present* clones the selected credential, lets you
 change the claims, then issues and presents the edited credential in one step. Every issued
 credential gets a fresh holder binding key.
@@ -101,6 +108,9 @@ Playwright and similar frameworks can rely on these selectors.
 | `#edit-as-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
 | `#credential-id`, `#credential-name`, `#credential-vct`, `#validity-days` | Edit form header fields |
 | `#claim-<name>` | One input per claim on the edit form. Nested claims use dot notation, for example `claim-address.locality` |
+| `#always-disclosed-<name>` | Checkbox marking a claim as always disclosed |
+| `#set-option-<setIndex>-<optionIndex>`, `#set-option-<setIndex>-skip` | Credential set choice on the picker |
+| `#claim-set-<queryId>-<optionIndex>` | Claim set choice on the picker |
 | `#new-claim-name`, `#new-claim-value`, `#add-claim` | Add a claim on the edit form |
 | `#issue-credential`, `#cancel-edit` | Edit form actions |
 | `#conformance-warnings`, `#form-error` | Warning and error containers |

@@ -4,6 +4,7 @@ import de.arbeitsagentur.opdt.walletsim.credentials.CredentialDefinition;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,8 @@ public class CredentialEditForms {
         form.setName(template.name() + " (copy)");
         form.setVct(template.vct());
         form.setClaimValues(renderClaimValues(template.claims()));
+        form.getClaimValues().keySet().forEach(path -> form.getClaimAlwaysDisclosed()
+                .put(path, template.alwaysDisclosedClaims().contains(path)));
         return form;
     }
 
@@ -46,18 +49,22 @@ public class CredentialEditForms {
         form.setVct("urn:eudi:pid:1");
         form.setClaimValues(
                 renderClaimValues(Map.of("family_name", "Doe", "given_name", "Jane", "birthdate", "1990-01-01")));
+        form.getClaimValues().keySet().forEach(path -> form.getClaimAlwaysDisclosed()
+                .put(path, false));
         return form;
     }
 
     // Moves the add-claim row into a regular claim field and clears the row.
     public void addNewClaim(CredentialEditForm form) {
         if (form.getNewClaimName() != null && !form.getNewClaimName().isBlank()) {
+            String path = form.getNewClaimName().trim();
             form.getClaimValues()
                     .put(
-                            form.getNewClaimName().trim(),
+                            path,
                             form.getNewClaimValue() == null
                                     ? ""
                                     : form.getNewClaimValue().trim());
+            form.getClaimAlwaysDisclosed().putIfAbsent(path, false);
             form.setNewClaimName(null);
             form.setNewClaimValue(null);
         }
@@ -92,7 +99,17 @@ public class CredentialEditForms {
                 form.getName().trim(),
                 form.getVct().trim(),
                 form.getValidityDays(),
-                parseClaims(form));
+                parseClaims(form),
+                alwaysDisclosedClaims(form));
+    }
+
+    private static List<String> alwaysDisclosedClaims(CredentialEditForm form) {
+        return form.getClaimValues().entrySet().stream()
+                .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
+                .map(Map.Entry::getKey)
+                .filter(path ->
+                        Boolean.TRUE.equals(form.getClaimAlwaysDisclosed().get(path)))
+                .toList();
     }
 
     private Map<String, Object> parseClaims(CredentialEditForm form) {

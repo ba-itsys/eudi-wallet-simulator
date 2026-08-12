@@ -1,6 +1,7 @@
 package de.arbeitsagentur.opdt.walletsim.credentials;
 
 import com.nimbusds.jose.jwk.ECKey;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,6 +14,7 @@ public record StoredCredential(
         String format,
         String vct,
         Map<String, Object> claims,
+        List<String> alwaysDisclosedClaims,
         String sdJwt,
         int statusIndex,
         ECKey holderKey,

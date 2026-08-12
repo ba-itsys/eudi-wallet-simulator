@@ -9,6 +9,7 @@ public class SelectionForm {
 
     private Map<String, String> selection = new LinkedHashMap<>();
     private Map<String, String> setOption = new LinkedHashMap<>();
+    private Map<String, String> claimSet = new LinkedHashMap<>();
     private String flowState;
 
     public Map<String, String> getSelection() {
@@ -25,6 +26,14 @@ public class SelectionForm {
 
     public void setSetOption(Map<String, String> setOption) {
         this.setOption = setOption;
+    }
+
+    public Map<String, String> getClaimSet() {
+        return claimSet;
+    }
+
+    public void setClaimSet(Map<String, String> claimSet) {
+        this.claimSet = claimSet;
     }
 
     public String getFlowState() {

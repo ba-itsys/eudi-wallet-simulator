@@ -1,9 +1,20 @@
 package de.arbeitsagentur.opdt.walletsim.credentials;
 
+import java.util.List;
 import java.util.Map;
 
-// A credential as defined in the YAML seed file or created ad hoc in the UI.
-public record CredentialDefinition(String id, String name, String vct, int validityDays, Map<String, Object> claims) {
+/**
+ * A credential as defined in the YAML seed file or created ad hoc in the UI. Claims are
+ * selectively disclosable unless their dot notation path is listed in alwaysDisclosedClaims, in
+ * which case they are always visible to the verifier.
+ */
+public record CredentialDefinition(
+        String id,
+        String name,
+        String vct,
+        int validityDays,
+        Map<String, Object> claims,
+        List<String> alwaysDisclosedClaims) {
 
     public static final String FORMAT_SD_JWT_VC = "dc+sd-jwt";
 

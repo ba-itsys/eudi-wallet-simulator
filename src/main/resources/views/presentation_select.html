@@ -50,6 +50,19 @@
 
         <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.matches)}">
             <h4 data-th-text="'Credentials for query ' + ${slot.queryId}">Credentials</h4>
+            <div class="mb-2" data-th-if="${slot.matches[0].claimSetOptions.size() > 1}">
+                <p class="mb-1">The verifier accepts several claim sets, choose which one to answer with:</p>
+                <div class="form-check" data-th-each="option : ${slot.matches[0].claimSetOptions}">
+                    <input class="form-check-input" type="radio"
+                           data-th-name="'claimSet[' + ${slot.queryId} + ']'"
+                           data-th-id="'claim-set-' + ${slot.queryId} + '-' + ${option.index}"
+                           data-th-value="${option.index}"
+                           data-th-checked="${option.index == slot.matches[0].claimSetOptions[0].index}"/>
+                    <label class="form-check-label"
+                           data-th-for="'claim-set-' + ${slot.queryId} + '-' + ${option.index}"
+                           data-th-text="${option.label}">claims</label>
+                </div>
+            </div>
             <div class="row row-cols-3 g-2 mb-3">
                 <div class="col" data-th-each="match, iterStat : ${slot.matches}">
                     <div class="card p-2 h-100" data-th-attr="data-credential-id=${match.credential.id}">
@@ -63,9 +76,11 @@
                                    data-th-for="'select-' + ${slot.queryId} + '-' + ${match.credential.id}">
                                 <strong data-th-text="${match.credential.name}">Credential</strong><br/>
                                 <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
-                                <small>Disclosed claims:
+                                <small data-th-if="${match.claimSetOptions.size() == 1}">Disclosed claims:
                                     <span data-th-text="${#strings.listJoin(match.claimsToDiscloseDisplay, ', ')}">claims</span>
-                                </small><br/>
+                                </small>
+                                <small data-th-if="${match.claimSetOptions.size() > 1}"
+                                       data-th-text="${match.claimSetOptions.size()} + ' claim set options'">options</small><br/>
                                 <small class="text-muted">ID:</small> <code data-th-text="${match.credential.id}">id</code>
                             </label>
                         </div>

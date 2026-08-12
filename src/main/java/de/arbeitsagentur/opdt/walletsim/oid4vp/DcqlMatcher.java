@@ -23,17 +23,40 @@ import org.springframework.stereotype.Component;
 @Component
 public class DcqlMatcher {
 
+    // one satisfiable claim_sets option, or the single implicit option when the query has none
+    public record ClaimSetOption(int index, String label, List<List<Object>> claimPaths) {
+
+        public static ClaimSetOption of(int index, List<List<Object>> claimPaths) {
+            String label = claimPaths.isEmpty()
+                    ? "no selectively disclosable claims"
+                    : String.join(", ", displayPaths(claimPaths));
+            return new ClaimSetOption(index, label, claimPaths);
+        }
+    }
+
     public record CredentialMatch(
-            String credentialQueryId, StoredCredential credential, List<List<Object>> claimsToDisclose) {
+            String credentialQueryId, StoredCredential credential, List<ClaimSetOption> claimSetOptions) {
+
+        public List<List<Object>> claimsToDisclose(int optionIndex) {
+            return claimSetOptions.stream()
+                    .filter(option -> option.index() == optionIndex)
+                    .findFirst()
+                    .orElse(claimSetOptions.getFirst())
+                    .claimPaths();
+        }
 
         // dot notation labels for the picker, null steps render as *
         public List<String> claimsToDiscloseDisplay() {
-            return claimsToDisclose.stream()
-                    .map(path -> path.stream()
-                            .map(step -> step == null ? "*" : String.valueOf(step))
-                            .collect(Collectors.joining(".")))
-                    .toList();
+            return displayPaths(claimSetOptions.getFirst().claimPaths());
         }
+    }
+
+    private static List<String> displayPaths(List<List<Object>> claimPaths) {
+        return claimPaths.stream()
+                .map(path -> path.stream()
+                        .map(step -> step == null ? "*" : String.valueOf(step))
+                        .collect(Collectors.joining(".")))
+                .toList();
     }
 
     public record QuerySlot(String queryId, List<CredentialMatch> matches) {}
@@ -138,7 +161,7 @@ public class DcqlMatcher {
                                 !matchesByQuery.getOrDefault(id, List.of()).isEmpty())));
     }
 
-    private Optional<List<List<Object>>> match(DcqlQuery.CredentialQuery query, StoredCredential credential) {
+    private Optional<List<ClaimSetOption>> match(DcqlQuery.CredentialQuery query, StoredCredential credential) {
         if (!CredentialDefinition.FORMAT_SD_JWT_VC.equals(query.format())) {
             return Optional.empty();
         }
@@ -151,27 +174,36 @@ public class DcqlMatcher {
         return claimsToDisclose(query, credential);
     }
 
-    private static Optional<List<List<Object>>> claimsToDisclose(
+    /**
+     * All claim_sets options this credential can satisfy, in the verifier's preference order. The
+     * user picks one in the picker instead of the wallet silently taking the first, because the
+     * point of the simulator is to produce every possible outcome.
+     */
+    private static Optional<List<ClaimSetOption>> claimsToDisclose(
             DcqlQuery.CredentialQuery query, StoredCredential credential) {
         if (query.claims().isEmpty()) {
             // OID4VP 1.0 §6.4.1: absent claims requests no selectively disclosable claims
-            return Optional.of(List.of());
+            return Optional.of(List.of(ClaimSetOption.of(0, List.of())));
         }
         if (query.claimSets().isEmpty()) {
-            return allResolve(query.claims(), credential) ? Optional.of(claimPaths(query.claims())) : Optional.empty();
+            return allResolve(query.claims(), credential)
+                    ? Optional.of(List.of(ClaimSetOption.of(0, claimPaths(query.claims()))))
+                    : Optional.empty();
         }
         Map<String, DcqlQuery.ClaimQuery> claimsById = new LinkedHashMap<>();
         query.claims().forEach(claim -> claimsById.put(claim.id(), claim));
-        for (List<String> option : query.claimSets()) {
+        List<ClaimSetOption> options = new ArrayList<>();
+        for (int i = 0; i < query.claimSets().size(); i++) {
+            List<String> option = query.claimSets().get(i);
             List<DcqlQuery.ClaimQuery> optionClaims = option.stream()
                     .map(claimsById::get)
                     .filter(Objects::nonNull)
                     .toList();
             if (optionClaims.size() == option.size() && allResolve(optionClaims, credential)) {
-                return Optional.of(claimPaths(optionClaims));
+                options.add(ClaimSetOption.of(i, claimPaths(optionClaims)));
             }
         }
-        return Optional.empty();
+        return options.isEmpty() ? Optional.empty() : Optional.of(options);
     }
 
     private static boolean allResolve(List<DcqlQuery.ClaimQuery> claims, StoredCredential credential) {

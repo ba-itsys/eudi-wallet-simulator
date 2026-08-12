@@ -1,6 +1,7 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
 import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.JWEAlgorithm;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
@@ -142,8 +143,10 @@ public final class TestVerifier implements AutoCloseable {
 
     // Switches to direct_post.jwt with an ephemeral encryption key whose kid is the flow state.
     public TestVerifier withEncryptedResponses() throws Exception {
-        this.responseEncryptionKey =
-                new ECKeyGenerator(Curve.P_256).keyID(state).generate();
+        this.responseEncryptionKey = new ECKeyGenerator(Curve.P_256)
+                .keyID(state)
+                .algorithm(JWEAlgorithm.ECDH_ES)
+                .generate();
         return this;
     }
 
