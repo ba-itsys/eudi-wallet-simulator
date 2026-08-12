@@ -38,10 +38,9 @@ class StatusListTest {
     @Test
     void statusListTokenValidatesAndReflectsRevocation() throws Exception {
         JsonNode credential = client().get()
-                .uri("/api/credentials")
+                .uri("/api/credentials/pid-erika-mustermann")
                 .retrieve()
-                .body(JsonNode.class)
-                .get(0);
+                .body(JsonNode.class);
         String id = credential.get("id").asText();
         int idx = credential.get("status").get("idx").asInt();
         String expectedSub = credential.get("status").get("uri").asText();
@@ -59,6 +58,9 @@ class StatusListTest {
         assertThat(revocation.getBody().get("statusName").asText()).isEqualTo("INVALID");
 
         assertThat(statusBitAt(idx, expectedSub)).isEqualTo(1);
+        assertThat(statusBitAt(idx + 1, expectedSub))
+                .as("only the credential's own index is flipped")
+                .isZero();
 
         JsonNode liveStatus = client().get()
                 .uri("/api/credentials/{id}/status", id)
@@ -66,16 +68,18 @@ class StatusListTest {
                 .body(JsonNode.class);
         assertThat(liveStatus.get("status").asInt()).isEqualTo(1);
         assertThat(liveStatus.get("idx").asInt()).isEqualTo(idx);
+
+        client().post()
+                .uri("/api/credentials/{id}/status", id)
+                .header("Content-Type", "application/json")
+                .body(Map.of("status", 0))
+                .retrieve()
+                .toBodilessEntity();
     }
 
     @Test
     void rejectsOutOfRangeStatusAndUnknownCredential() {
-        JsonNode credential = client().get()
-                .uri("/api/credentials")
-                .retrieve()
-                .body(JsonNode.class)
-                .get(0);
-        String id = credential.get("id").asText();
+        String id = "pid-erika-mustermann";
 
         ResponseEntity<String> outOfRange = client().post()
                 .uri("/api/credentials/{id}/status", id)

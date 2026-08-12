@@ -30,7 +30,10 @@ class CredentialApiTest {
         assertThat(credentials.isArray()).isTrue();
         assertThat(credentials.size()).isGreaterThanOrEqualTo(2);
 
-        JsonNode first = credentials.get(0);
+        JsonNode first = java.util.stream.StreamSupport.stream(credentials.spliterator(), false)
+                .filter(entry -> "pid-maria-neumann".equals(entry.get("id").asText()))
+                .findFirst()
+                .orElseThrow();
         assertThat(first.hasNonNull("id")).isTrue();
         assertThat(first.get("format").asText()).isEqualTo("dc+sd-jwt");
         assertThat(first.get("vct").asText()).isEqualTo("urn:eudi:pid:1");
@@ -42,8 +45,7 @@ class CredentialApiTest {
 
     @Test
     void returnsSingleCredentialWithSdJwtById() {
-        JsonNode list = client().get().uri("/api/credentials").retrieve().body(JsonNode.class);
-        String id = list.get(0).get("id").asText();
+        String id = "pid-maria-neumann";
 
         ResponseEntity<JsonNode> response =
                 client().get().uri("/api/credentials/{id}", id).retrieve().toEntity(JsonNode.class);
