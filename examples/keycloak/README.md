@@ -29,8 +29,13 @@ docker compose up -d
 ```
 
 Open <http://localhost:8080/realms/wallet-demo/account/> and choose **Sign in with Wallet**, then
-**Open wallet**. The browser lands on the simulator's credential picker. Present a PID credential
-and the login completes with the disclosed claims mapped to the Keycloak user.
+**Open wallet**. The browser lands on the simulator's credential picker. Present a credential and
+the login completes with the disclosed claims mapped to the Keycloak user.
+
+The realm requests two credential types, a PID and a health insurance credential, as a credential
+set in optional mode. The verifier therefore accepts either one, and the picker lets you choose
+which credential type to answer with. Both types are part of the simulator's default wallet
+content.
 
 The admin console is at <http://localhost:8080/admin> with user `admin` and password `admin`.
 

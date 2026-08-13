@@ -31,7 +31,7 @@ public class TrustedAuthorityMatcher {
     private final RestClient restClient = RestClient.create();
     private final Map<String, List<X509Certificate>> trustListCache = new ConcurrentHashMap<>();
 
-    public boolean matches(StoredCredential credential, List<DcqlQuery.TrustedAuthority> trustedAuthorities) {
+    public boolean matches(StoredCredential credential, List<TrustedAuthority> trustedAuthorities) {
         if (trustedAuthorities.isEmpty()) {
             return true;
         }
@@ -42,7 +42,7 @@ public class TrustedAuthorityMatcher {
         return trustedAuthorities.stream().anyMatch(authority -> matchesAuthority(chain, authority));
     }
 
-    private boolean matchesAuthority(List<X509Certificate> chain, DcqlQuery.TrustedAuthority authority) {
+    private boolean matchesAuthority(List<X509Certificate> chain, TrustedAuthority authority) {
         return switch (authority.type() == null ? "" : authority.type()) {
             case "aki" -> authority.values().stream().anyMatch(value -> matchesAki(chain, value));
             case "etsi_tl" -> authority.values().stream().anyMatch(value -> matchesTrustList(chain, value));

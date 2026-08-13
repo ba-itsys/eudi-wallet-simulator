@@ -86,7 +86,7 @@ class EditDuringFlowTest {
                     .isTrue();
             assertThat(save.getHeaders().getLocation().toString()).isEqualTo(verifier.redirectUri());
 
-            TestVerifier.ReceivedResponse response = verifier.awaitResponse();
+            ReceivedResponse response = verifier.awaitResponse();
             JsonNode vpToken =
                     new ObjectMapper().readValue(response.formParameters().get("vp_token"), JsonNode.class);
             String presentation = vpToken.get("pid").get(0).asText();

@@ -64,14 +64,6 @@ public final class TestVerifier implements AutoCloseable {
         return new TestVerifier(PID_DCQL_QUERY);
     }
 
-    public record ReceivedResponse(Map<String, String> formParameters) {}
-
-    // Mutates the request object claims before signing, to simulate non-conformant verifiers.
-    @FunctionalInterface
-    public interface RequestCustomizer {
-        void customize(Map<String, Object> claims);
-    }
-
     private final HttpServer server;
     private final KeyPair keyPair;
     private final X509Certificate certificate;

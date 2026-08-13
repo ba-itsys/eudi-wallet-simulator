@@ -21,7 +21,7 @@ public class WalletCredentialService {
         this.pki = pki;
     }
 
-    public StoredCredential issue(CredentialDefinition definition, StoredCredential.Source source) {
+    public StoredCredential issue(CredentialDefinition definition, CredentialSource source) {
         synchronized (store) {
             int statusIndex = store.reserveStatusIndex();
             ECKey holderKey = pki.generateCredentialBindingKey();

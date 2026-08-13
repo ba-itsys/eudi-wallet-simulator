@@ -1,6 +1,5 @@
 package de.arbeitsagentur.opdt.walletsim.api;
 
-import de.arbeitsagentur.opdt.walletsim.api.CredentialResponse.StatusReference;
 import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
@@ -24,8 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/credentials/{id}/status")
 public class CredentialStatusApiController {
-
-    public record StatusChangeRequest(int status) {}
 
     private static final Logger LOG = LoggerFactory.getLogger(CredentialStatusApiController.class);
 

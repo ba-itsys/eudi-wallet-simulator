@@ -59,7 +59,7 @@ class EncryptedResponseTest {
                     .toEntity(String.class);
             assertThat(submit.getStatusCode().is3xxRedirection()).isTrue();
 
-            TestVerifier.ReceivedResponse received = verifier.awaitResponse();
+            ReceivedResponse received = verifier.awaitResponse();
             String jwe = received.formParameters().get("response");
             assertThat(jwe)
                     .as("encrypted mode posts a single 'response' JWE parameter")

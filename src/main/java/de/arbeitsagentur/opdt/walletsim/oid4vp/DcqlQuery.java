@@ -6,26 +6,6 @@ import java.util.Map;
 // Typed view of the DCQL query subset the simulator evaluates (OID4VP 1.0 §6).
 public record DcqlQuery(List<CredentialQuery> credentials, List<CredentialSetQuery> credentialSets) {
 
-    public record CredentialQuery(
-            String id,
-            String format,
-            List<String> vctValues,
-            List<ClaimQuery> claims,
-            List<List<String>> claimSets,
-            List<TrustedAuthority> trustedAuthorities) {}
-
-    public record ClaimQuery(String id, List<Object> path, List<Object> values) {
-
-        // First path element, the top-level claim name deciding which disclosure to release.
-        public String topLevelClaimName() {
-            return path == null || path.isEmpty() ? null : String.valueOf(path.getFirst());
-        }
-    }
-
-    public record TrustedAuthority(String type, List<String> values) {}
-
-    public record CredentialSetQuery(List<List<String>> options, boolean required) {}
-
     @SuppressWarnings("unchecked")
     public static DcqlQuery from(Map<String, Object> dcqlQuery) {
         if (dcqlQuery == null || !(dcqlQuery.get("credentials") instanceof List<?> credentialEntries)) {

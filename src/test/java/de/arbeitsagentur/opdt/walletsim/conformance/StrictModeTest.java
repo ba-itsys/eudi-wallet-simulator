@@ -2,6 +2,7 @@ package de.arbeitsagentur.opdt.walletsim.conformance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.arbeitsagentur.opdt.walletsim.oid4vp.ReceivedResponse;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.TestVerifier;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -49,7 +50,7 @@ class StrictModeTest {
                     .as("strict mode does not render the picker")
                     .doesNotContain("data-credential-id");
 
-            TestVerifier.ReceivedResponse response = verifier.awaitResponse();
+            ReceivedResponse response = verifier.awaitResponse();
             assertThat(response.formParameters().get("error")).isEqualTo("invalid_request");
             assertThat(response.formParameters().get("error_description")).contains("nonce");
             assertThat(response.formParameters().get("state")).isEqualTo(verifier.state());

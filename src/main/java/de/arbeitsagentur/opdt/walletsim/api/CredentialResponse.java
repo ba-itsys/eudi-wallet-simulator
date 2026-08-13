@@ -16,17 +16,6 @@ public record CredentialResponse(
         String source,
         StatusReference status) {
 
-    public record StatusReference(String uri, int idx, int status, String statusName) {
-
-        public static StatusReference of(String statusListUri, int idx, int status) {
-            return new StatusReference(statusListUri, idx, status, statusName(status));
-        }
-
-        private static String statusName(int status) {
-            return status == 0 ? "VALID" : "INVALID";
-        }
-    }
-
     public static CredentialResponse of(StoredCredential credential, String statusListUri, int status) {
         return new CredentialResponse(
                 credential.id(),

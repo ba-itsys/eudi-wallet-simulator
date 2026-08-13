@@ -23,58 +23,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class DcqlMatcher {
 
-    // one satisfiable claim_sets option, or the single implicit option when the query has none
-    public record ClaimSetOption(int index, String label, List<List<Object>> claimPaths) {
-
-        public static ClaimSetOption of(int index, List<List<Object>> claimPaths) {
-            String label = claimPaths.isEmpty()
-                    ? "no selectively disclosable claims"
-                    : String.join(", ", displayPaths(claimPaths));
-            return new ClaimSetOption(index, label, claimPaths);
-        }
-    }
-
-    public record CredentialMatch(
-            String credentialQueryId, StoredCredential credential, List<ClaimSetOption> claimSetOptions) {
-
-        public List<List<Object>> claimsToDisclose(int optionIndex) {
-            return claimSetOptions.stream()
-                    .filter(option -> option.index() == optionIndex)
-                    .findFirst()
-                    .orElse(claimSetOptions.getFirst())
-                    .claimPaths();
-        }
-
-        // dot notation labels for the picker, null steps render as *
-        public List<String> claimsToDiscloseDisplay() {
-            return displayPaths(claimSetOptions.getFirst().claimPaths());
-        }
-    }
-
-    private static List<String> displayPaths(List<List<Object>> claimPaths) {
-        return claimPaths.stream()
-                .map(path -> path.stream()
-                        .map(step -> step == null ? "*" : String.valueOf(step))
-                        .collect(Collectors.joining(".")))
-                .toList();
-    }
-
-    public record QuerySlot(String queryId, List<CredentialMatch> matches) {}
-
-    // a credential set with more than one satisfiable option lets the user choose in the picker
-    public record SetChoice(int index, boolean required, List<List<String>> options) {
-
-        public List<String> optionLabels() {
-            return options.stream().map(option -> String.join(" + ", option)).toList();
-        }
-    }
-
-    public record PresentationPlan(
-            List<QuerySlot> slots,
-            List<String> alwaysRequestedQueryIds,
-            List<SetChoice> setChoices,
-            boolean satisfiable) {}
-
     private final CredentialStore store;
     private final TrustedAuthorityMatcher trustedAuthorityMatcher;
 
@@ -85,7 +33,7 @@ public class DcqlMatcher {
 
     public PresentationPlan plan(DcqlQuery query) {
         Map<String, List<CredentialMatch>> matchesByQuery = new LinkedHashMap<>();
-        for (DcqlQuery.CredentialQuery credentialQuery : query.credentials()) {
+        for (CredentialQuery credentialQuery : query.credentials()) {
             List<CredentialMatch> matches = new ArrayList<>();
             for (StoredCredential credential : store.findAll()) {
                 match(credentialQuery, credential)
@@ -97,13 +45,13 @@ public class DcqlMatcher {
         List<String> alwaysRequested = alwaysRequestedQueryIds(query);
         List<SetChoice> setChoices = satisfiableSetChoices(query, matchesByQuery);
         Set<String> displayedQueryIds = new LinkedHashSet<>(alwaysRequested);
-        setChoices.forEach(choice -> choice.options().forEach(displayedQueryIds::addAll));
+        setChoices.forEach(choice -> choice.options().forEach(option -> displayedQueryIds.addAll(option.queryIds())));
         if (displayedQueryIds.isEmpty() && query.credentialSets().isEmpty()) {
             query.credentials().forEach(credentialQuery -> displayedQueryIds.add(credentialQuery.id()));
         }
         List<QuerySlot> slots = new ArrayList<>();
         boolean satisfiable = !displayedQueryIds.isEmpty();
-        for (DcqlQuery.CredentialQuery credentialQuery : query.credentials()) {
+        for (CredentialQuery credentialQuery : query.credentials()) {
             if (!displayedQueryIds.contains(credentialQuery.id())) {
                 continue;
             }
@@ -122,31 +70,49 @@ public class DcqlMatcher {
     // queries not referenced by any credential set are always requested
     private static List<String> alwaysRequestedQueryIds(DcqlQuery query) {
         if (query.credentialSets().isEmpty()) {
-            return query.credentials().stream()
-                    .map(DcqlQuery.CredentialQuery::id)
-                    .toList();
+            return query.credentials().stream().map(CredentialQuery::id).toList();
         }
         Set<String> referenced = new LinkedHashSet<>();
         query.credentialSets().forEach(set -> set.options().forEach(referenced::addAll));
         return query.credentials().stream()
-                .map(DcqlQuery.CredentialQuery::id)
+                .map(CredentialQuery::id)
                 .filter(id -> !referenced.contains(id))
                 .toList();
     }
 
     // per credential set: the options whose queries all have at least one matching credential
+    // labels name the credential types behind the query ids, which reads better than cred1 + cred2
+    private static List<SetOption> setOptions(DcqlQuery query, List<List<String>> options) {
+        Map<String, String> descriptions = new LinkedHashMap<>();
+        query.credentials()
+                .forEach(credentialQuery -> descriptions.put(
+                        credentialQuery.id(),
+                        credentialQuery.vctValues().isEmpty()
+                                ? credentialQuery.id()
+                                : String.join(" or ", credentialQuery.vctValues())));
+        List<SetOption> setOptions = new ArrayList<>();
+        for (int i = 0; i < options.size(); i++) {
+            List<String> queryIds = options.get(i);
+            String label = queryIds.stream()
+                    .map(id -> descriptions.getOrDefault(id, id))
+                    .collect(Collectors.joining(" + "));
+            setOptions.add(new SetOption(i, label, queryIds));
+        }
+        return setOptions;
+    }
+
     private static List<SetChoice> satisfiableSetChoices(
             DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
         List<SetChoice> choices = new ArrayList<>();
         for (int i = 0; i < query.credentialSets().size(); i++) {
-            DcqlQuery.CredentialSetQuery set = query.credentialSets().get(i);
+            CredentialSetQuery set = query.credentialSets().get(i);
             List<List<String>> satisfiable = set.options().stream()
                     .filter(option -> option.stream()
                             .allMatch(id ->
                                     !matchesByQuery.getOrDefault(id, List.of()).isEmpty()))
                     .toList();
             if (!satisfiable.isEmpty()) {
-                choices.add(new SetChoice(i, set.required(), satisfiable));
+                choices.add(new SetChoice(i, set.required(), setOptions(query, satisfiable)));
             }
         }
         return choices;
@@ -155,13 +121,13 @@ public class DcqlMatcher {
     private static boolean hasUnsatisfiableRequiredSet(
             DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
         return query.credentialSets().stream()
-                .filter(DcqlQuery.CredentialSetQuery::required)
+                .filter(CredentialSetQuery::required)
                 .anyMatch(set -> set.options().stream().noneMatch(option -> option.stream()
                         .allMatch(id ->
                                 !matchesByQuery.getOrDefault(id, List.of()).isEmpty())));
     }
 
-    private Optional<List<ClaimSetOption>> match(DcqlQuery.CredentialQuery query, StoredCredential credential) {
+    private Optional<List<ClaimSetOption>> match(CredentialQuery query, StoredCredential credential) {
         if (!CredentialDefinition.FORMAT_SD_JWT_VC.equals(query.format())) {
             return Optional.empty();
         }
@@ -179,8 +145,7 @@ public class DcqlMatcher {
      * user picks one in the picker instead of the wallet silently taking the first, because the
      * point of the simulator is to produce every possible outcome.
      */
-    private static Optional<List<ClaimSetOption>> claimsToDisclose(
-            DcqlQuery.CredentialQuery query, StoredCredential credential) {
+    private static Optional<List<ClaimSetOption>> claimsToDisclose(CredentialQuery query, StoredCredential credential) {
         if (query.claims().isEmpty()) {
             // OID4VP 1.0 §6.4.1: absent claims requests no selectively disclosable claims
             return Optional.of(List.of(ClaimSetOption.of(0, List.of())));
@@ -190,12 +155,12 @@ public class DcqlMatcher {
                     ? Optional.of(List.of(ClaimSetOption.of(0, claimPaths(query.claims()))))
                     : Optional.empty();
         }
-        Map<String, DcqlQuery.ClaimQuery> claimsById = new LinkedHashMap<>();
+        Map<String, ClaimQuery> claimsById = new LinkedHashMap<>();
         query.claims().forEach(claim -> claimsById.put(claim.id(), claim));
         List<ClaimSetOption> options = new ArrayList<>();
         for (int i = 0; i < query.claimSets().size(); i++) {
             List<String> option = query.claimSets().get(i);
-            List<DcqlQuery.ClaimQuery> optionClaims = option.stream()
+            List<ClaimQuery> optionClaims = option.stream()
                     .map(claimsById::get)
                     .filter(Objects::nonNull)
                     .toList();
@@ -206,13 +171,13 @@ public class DcqlMatcher {
         return options.isEmpty() ? Optional.empty() : Optional.of(options);
     }
 
-    private static boolean allResolve(List<DcqlQuery.ClaimQuery> claims, StoredCredential credential) {
+    private static boolean allResolve(List<ClaimQuery> claims, StoredCredential credential) {
         return claims.stream().allMatch(claim -> resolve(credential.claims(), claim.path(), 0, claim.values()));
     }
 
-    private static List<List<Object>> claimPaths(List<DcqlQuery.ClaimQuery> claims) {
+    private static List<List<Object>> claimPaths(List<ClaimQuery> claims) {
         return claims.stream()
-                .map(DcqlQuery.ClaimQuery::path)
+                .map(ClaimQuery::path)
                 .filter(path -> !path.isEmpty())
                 .distinct()
                 .toList();

@@ -19,8 +19,6 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class ResponseSubmitter {
 
-    public record SubmissionResult(Optional<String> redirectUri) {}
-
     private final RestClient restClient = RestClient.create();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ResponseEncryptor responseEncryptor;
