@@ -21,6 +21,26 @@ public class WalletCredentialService {
         this.pki = pki;
     }
 
+    /**
+     * Issues a credential that exists only for the current presentation. It is signed like any
+     * other credential but never enters the wallet, so a presentation flow cannot change the
+     * wallet content. Persistent credentials are created from the start page instead.
+     */
+    public StoredCredential issueForSinglePresentation(CredentialDefinition definition) {
+        ECKey holderKey = pki.generateCredentialBindingKey();
+        return new StoredCredential(
+                definition.id(),
+                definition.name(),
+                definition.format(),
+                definition.vct(),
+                definition.claims(),
+                definition.alwaysDisclosedClaims(),
+                issuer.issue(definition, null, holderKey),
+                -1,
+                holderKey,
+                CredentialSource.SINGLE_PRESENTATION);
+    }
+
     public StoredCredential issue(CredentialDefinition definition, CredentialSource source) {
         synchronized (store) {
             int statusIndex = store.reserveStatusIndex();

@@ -18,6 +18,7 @@ public class CredentialEditForm {
     private String newClaimName;
     private String newClaimValue;
     private String flowState;
+    private String singlePresentationCredential;
 
     public String getId() {
         return id;
@@ -81,6 +82,14 @@ public class CredentialEditForm {
 
     public void setNewClaimValue(String newClaimValue) {
         this.newClaimValue = newClaimValue;
+    }
+
+    public String getSinglePresentationCredential() {
+        return singlePresentationCredential;
+    }
+
+    public void setSinglePresentationCredential(String singlePresentationCredential) {
+        this.singlePresentationCredential = singlePresentationCredential;
     }
 
     public String getFlowState() {
