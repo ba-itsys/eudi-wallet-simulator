@@ -137,9 +137,10 @@ class CredentialAndClaimSetsTest {
             String picker =
                     client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
             assertThat(picker)
-                    .as("both alternatives are offered as a choice")
-                    .contains("id=\"set-option-0-0\"")
-                    .contains("id=\"set-option-0-1\"");
+                    .as("the alternatives are offered as a dropdown")
+                    .contains("id=\"set-option-0\"")
+                    .contains("data-query-ids=\"pid,extra\"")
+                    .contains("data-query-ids=\"pid\"");
             String flowState = extractHiddenField(picker, "flowState");
 
             ResponseEntity<String> submit = client().post()
