@@ -4,7 +4,7 @@ import de.arbeitsagentur.opdt.walletsim.conformance.ConformanceSettings;
 import de.arbeitsagentur.opdt.walletsim.conformance.Finding;
 import de.arbeitsagentur.opdt.walletsim.conformance.RequestObjectValidator;
 import de.arbeitsagentur.opdt.walletsim.conformance.ValidationMode;
-import de.arbeitsagentur.opdt.walletsim.credentials.CredentialSource;
+import de.arbeitsagentur.opdt.walletsim.credentials.SinglePresentationCredentials;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
@@ -57,6 +57,7 @@ public class AuthorizeController {
     private final ResponseSubmitter responseSubmitter;
     private final CredentialEditForms editForms;
     private final WalletCredentialService credentialService;
+    private final SinglePresentationCredentials singlePresentationCredentials;
 
     public AuthorizeController(
             RequestObjectClient requestObjectClient,
@@ -66,7 +67,8 @@ public class AuthorizeController {
             SdJwtPresentationBuilder presentationBuilder,
             ResponseSubmitter responseSubmitter,
             CredentialEditForms editForms,
-            WalletCredentialService credentialService) {
+            WalletCredentialService credentialService,
+            SinglePresentationCredentials singlePresentationCredentials) {
         this.requestObjectClient = requestObjectClient;
         this.validator = validator;
         this.conformanceSettings = conformanceSettings;
@@ -75,6 +77,7 @@ public class AuthorizeController {
         this.responseSubmitter = responseSubmitter;
         this.editForms = editForms;
         this.credentialService = credentialService;
+        this.singlePresentationCredentials = singlePresentationCredentials;
     }
 
     @GetMapping("/authorize")
@@ -97,7 +100,11 @@ public class AuthorizeController {
     @PostMapping("/authorize/submit")
     public String submit(@ModelAttribute SelectionForm form, Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
-        PresentationPlan plan = plan(request);
+        List<StoredCredential> extra = singlePresentationCredentials
+                .deserialize(form.getSinglePresentationCredential())
+                .map(List::of)
+                .orElseGet(List::of);
+        PresentationPlan plan = plan(request, extra);
         Set<String> requestedQueryIds = requestedQueryIds(plan, form);
         Map<String, String> presentations = new LinkedHashMap<>();
         Map<String, String> selectedCredentials = new LinkedHashMap<>();
@@ -176,13 +183,22 @@ public class AuthorizeController {
         String templateId = firstNonBlank(selectedForQuery, credentialId)
                 .or(form::firstSelectedCredentialId)
                 .orElseThrow(() -> new InvalidRequestException("No credential selected for editing"));
-        CredentialEditForm editForm = editForms.cloneForm(templateId);
+        List<StoredCredential> extra = singlePresentationCredentials
+                .deserialize(form.getSinglePresentationCredential())
+                .map(List::of)
+                .orElseGet(List::of);
+        CredentialEditForm editForm = extra.stream()
+                .filter(credential -> credential.id().equals(templateId))
+                .findFirst()
+                .map(editForms::cloneForm)
+                .orElseGet(() -> editForms.cloneForm(templateId));
         editForm.setFlowState(form.getFlowState());
+        editForm.setSinglePresentationCredential(form.getSinglePresentationCredential());
         return editView(editForm, model);
     }
 
     @PostMapping("/authorize/edit/save")
-    public String saveAndPresent(
+    public String saveDuringFlow(
             @ModelAttribute("form") CredentialEditForm form,
             @RequestParam(name = "action", required = false) String action,
             Model model) {
@@ -196,35 +212,37 @@ public class AuthorizeController {
             return editView(form, model);
         }
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
-        StoredCredential credential = credentialService.issue(editForms.toDefinition(form), CredentialSource.AD_HOC);
-        PresentationPlan plan = plan(request);
-        if (plan.slots().size() == 1) {
-            QuerySlot slot = plan.slots().getFirst();
-            CredentialMatch match = slot.matches().stream()
-                    .filter(candidate -> candidate.credential().id().equals(credential.id()))
-                    .findFirst()
-                    .orElse(null);
-            if (match == null) {
-                model.addAttribute(
-                        "formError",
-                        "The credential was issued but does not match the verifier's query; adjust the claims or vct.");
-                return editView(form, model);
-            }
-            String presentation = presentationBuilder.build(
-                    match.credential(), match.claimsToDisclose(0), request.clientId(), request.nonce());
-            SubmissionResult result = responseSubmitter.submitVpToken(request, Map.of(slot.queryId(), presentation));
-            LOG.info("Presented ad-hoc credential {} to {}", credential.id(), request.clientId());
-            return complete(result, model);
+        StoredCredential credential = credentialService.issueForSinglePresentation(editForms.toDefinition(form));
+        PresentationPlan plan = plan(request, List.of(credential));
+        boolean matchesAnyQuery = plan.slots().stream()
+                .flatMap(slot -> slot.matches().stream())
+                .anyMatch(match -> match.credential().id().equals(credential.id()));
+        if (!matchesAnyQuery) {
+            model.addAttribute(
+                    "formError",
+                    "The credential was issued but does not match the verifier's query; adjust the claims or vct.");
+            return editView(form, model);
         }
+        LOG.info("Issued credential {} for this presentation only", credential.id());
         model.addAttribute("findings", List.of());
-        return renderPicker(request, model);
+        model.addAttribute("preselectedCredentialId", credential.id());
+        model.addAttribute("singlePresentationCredential", singlePresentationCredentials.serialize(credential));
+        return renderPicker(request, plan, model);
     }
 
     @PostMapping("/authorize/edit/cancel")
-    public String cancelEditDuringFlow(@RequestParam("flowState") String flowState, Model model) {
+    public String cancelEditDuringFlow(
+            @RequestParam("flowState") String flowState,
+            @RequestParam(name = "singlePresentationCredential", required = false) String encodedCredential,
+            Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(flowState);
+        List<StoredCredential> extra = singlePresentationCredentials
+                .deserialize(encodedCredential)
+                .map(List::of)
+                .orElseGet(List::of);
         model.addAttribute("findings", List.of());
-        return renderPicker(request, model);
+        model.addAttribute("singlePresentationCredential", encodedCredential);
+        return renderPicker(request, plan(request, extra), model);
     }
 
     @PostMapping("/authorize/cancel")
@@ -265,7 +283,10 @@ public class AuthorizeController {
     }
 
     private String renderPicker(AuthorizationRequest request, Model model) {
-        PresentationPlan plan = plan(request);
+        return renderPicker(request, plan(request), model);
+    }
+
+    private String renderPicker(AuthorizationRequest request, PresentationPlan plan, Model model) {
         model.addAttribute("verifierClientId", request.clientId());
         model.addAttribute("slots", plan.slots());
         model.addAttribute("setChoices", plan.setChoices());
@@ -275,8 +296,12 @@ public class AuthorizeController {
     }
 
     private PresentationPlan plan(AuthorizationRequest request) {
+        return plan(request, List.of());
+    }
+
+    private PresentationPlan plan(AuthorizationRequest request, List<StoredCredential> extraCredentials) {
         try {
-            return dcqlMatcher.plan(DcqlQuery.from(request.dcqlQuery()));
+            return dcqlMatcher.plan(DcqlQuery.from(request.dcqlQuery()), extraCredentials);
         } catch (InvalidRequestException e) {
             return new PresentationPlan(List.of(), List.of(), List.of(), false);
         }
@@ -284,6 +309,7 @@ public class AuthorizeController {
 
     private String editView(CredentialEditForm form, Model model) {
         model.addAttribute("form", form);
+        model.addAttribute("singlePresentationCredential", form.getSinglePresentationCredential());
         model.addAttribute("formAction", "/authorize/edit/save");
         return "credential_edit";
     }

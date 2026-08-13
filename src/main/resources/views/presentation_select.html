@@ -21,6 +21,7 @@
 
     <form method="post" data-th-action="@{__${basepath}__/authorize/submit}">
         <input type="hidden" name="flowState" data-th-value="${flowState}"/>
+        <input type="hidden" data-th-if="${singlePresentationCredential}" name="singlePresentationCredential" data-th-value="${singlePresentationCredential}"/>
 
         <div class="alert alert-warning" data-th-unless="${satisfiable}">
             No credential in this wallet matches the verifier's query.
@@ -68,10 +69,14 @@
                                    data-th-name="'selection[' + ${slot.queryId} + ']'"
                                    data-th-id="'select-' + ${slot.queryId} + '-' + ${match.credential.id}"
                                    data-th-value="${match.credential.id}"
-                                   data-th-checked="${iterStat.first}"/>
+                                   data-th-checked="${preselectedCredentialId != null}
+                                       ? ${match.credential.id == preselectedCredentialId}
+                                       : ${iterStat.first}"/>
                             <label class="form-check-label w-100"
                                    data-th-for="'select-' + ${slot.queryId} + '-' + ${match.credential.id}">
-                                <strong data-th-text="${match.credential.name}">Credential</strong><br/>
+                                <strong data-th-text="${match.credential.name}">Credential</strong>
+                                <span class="badge text-bg-warning"
+                                      data-th-if="${match.credential.source.name() == 'SINGLE_PRESENTATION'}">this presentation only</span><br/>
                                 <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
                                 <small data-th-each="option : ${match.claimSetOptions}"
                                        data-th-attr="data-claim-set-query=${slot.queryId},data-claim-set-option=${option.index}">Disclosed claims:

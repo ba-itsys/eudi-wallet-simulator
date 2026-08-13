@@ -46,7 +46,7 @@ class EditDuringFlowTest {
     }
 
     @Test
-    void editedCredentialIsIssuedAndPresentedWithinTheFlow() throws Exception {
+    void editedCredentialIsIssuedAndPreselectedForPresentation() throws Exception {
         try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
             URI authorizeUrl = URI.create("http://localhost:" + port + "/authorize?client_id="
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
@@ -81,10 +81,34 @@ class EditDuringFlowTest {
                     .retrieve()
                     .toEntity(String.class);
 
-            assertThat(save.getStatusCode().is3xxRedirection())
-                    .as("saving during the flow presents directly and follows the verifier redirect")
-                    .isTrue();
-            assertThat(save.getHeaders().getLocation().toString()).isEqualTo(verifier.redirectUri());
+            assertThat(save.getStatusCode())
+                    .as("issuing returns to the selection instead of presenting")
+                    .isEqualTo(HttpStatus.OK);
+            assertThat(save.getBody()).contains("data-credential-id=\"pid-maria-edited\"");
+            int radioStart = save.getBody().indexOf("select-pid-pid-maria-edited");
+            assertThat(save.getBody().substring(radioStart, radioStart + 120))
+                    .as("the new credential is preselected")
+                    .contains("checked");
+            assertThat(save.getBody()).contains("this presentation only");
+
+            ResponseEntity<String> stored = client().get()
+                    .uri("/api/credentials/pid-maria-edited")
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(stored.getStatusCode())
+                    .as("editing during a flow does not change the wallet content")
+                    .isEqualTo(HttpStatus.NOT_FOUND);
+
+            String carried = extractHiddenField(save.getBody(), "singlePresentationCredential");
+            ResponseEntity<String> present = client().post()
+                    .uri("/authorize/submit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("selection%5Bpid%5D=pid-maria-edited&singlePresentationCredential="
+                            + URLEncoder.encode(carried, StandardCharsets.UTF_8) + "&flowState="
+                            + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(present.getStatusCode().is3xxRedirection()).isTrue();
 
             ReceivedResponse response = verifier.awaitResponse();
             JsonNode vpToken =
@@ -96,12 +120,6 @@ class EditDuringFlowTest {
                     .map(part -> new String(Base64.getUrlDecoder().decode(part), StandardCharsets.UTF_8))
                     .toList();
             assertThat(disclosures).anyMatch(d -> d.contains("Edited-Neumann"));
-
-            JsonNode stored = client().get()
-                    .uri("/api/credentials/pid-maria-edited")
-                    .retrieve()
-                    .body(JsonNode.class);
-            assertThat(stored.get("source").asText()).isEqualTo("AD_HOC");
         }
     }
 

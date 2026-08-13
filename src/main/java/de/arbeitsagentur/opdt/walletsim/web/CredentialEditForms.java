@@ -30,10 +30,13 @@ public class CredentialEditForms {
     }
 
     public CredentialEditForm cloneForm(String templateCredentialId) {
-        StoredCredential template = store.findById(templateCredentialId)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown credential id: " + templateCredentialId));
+        return cloneForm(store.findById(templateCredentialId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown credential id: " + templateCredentialId)));
+    }
+
+    public CredentialEditForm cloneForm(StoredCredential template) {
         CredentialEditForm form = new CredentialEditForm();
-        form.setId(uniqueIdFrom(templateCredentialId));
+        form.setId(uniqueIdFrom(template.id()));
         form.setName(template.name() + " (copy)");
         form.setVct(template.vct());
         form.setClaimValues(renderClaimValues(template.claims()));

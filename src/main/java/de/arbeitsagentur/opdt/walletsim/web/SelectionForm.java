@@ -11,6 +11,7 @@ public class SelectionForm {
     private Map<String, String> setOption = new LinkedHashMap<>();
     private Map<String, String> claimSet = new LinkedHashMap<>();
     private String flowState;
+    private String singlePresentationCredential;
 
     public Map<String, String> getSelection() {
         return selection;
@@ -42,6 +43,14 @@ public class SelectionForm {
 
     public void setFlowState(String flowState) {
         this.flowState = flowState;
+    }
+
+    public String getSinglePresentationCredential() {
+        return singlePresentationCredential;
+    }
+
+    public void setSinglePresentationCredential(String singlePresentationCredential) {
+        this.singlePresentationCredential = singlePresentationCredential;
     }
 
     public Optional<String> firstSelectedCredentialId() {

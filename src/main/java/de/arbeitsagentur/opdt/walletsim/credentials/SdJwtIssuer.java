@@ -40,7 +40,9 @@ public class SdJwtIssuer {
         this.urls = urls;
     }
 
-    public String issue(CredentialDefinition definition, int statusIndex, ECKey holderKey) {
+    // statusIndex is null for credentials that exist only for a single presentation, they get no
+    // status list reference because nothing can revoke them
+    public String issue(CredentialDefinition definition, Integer statusIndex, ECKey holderKey) {
         try {
             List<Disclosure> disclosures = new ArrayList<>();
             Map<String, Object> encodedClaims =
@@ -52,8 +54,10 @@ public class SdJwtIssuer {
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(definition.validityDays(), ChronoUnit.DAYS)))
                     .claim("vct", definition.vct())
-                    .claim("cnf", Map.of("jwk", holderKey.toPublicJWK().toJSONObject()))
-                    .claim("status", Map.of("status_list", Map.of("uri", urls.statusListUri(), "idx", statusIndex)));
+                    .claim("cnf", Map.of("jwk", holderKey.toPublicJWK().toJSONObject()));
+            if (statusIndex != null) {
+                claims.claim("status", Map.of("status_list", Map.of("uri", urls.statusListUri(), "idx", statusIndex)));
+            }
             encodedClaims.forEach(claims::claim);
 
             JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES256)
