@@ -37,6 +37,11 @@ set in optional mode. The verifier therefore accepts either one, and the picker 
 which credential type to answer with. Both types are part of the simulator's default wallet
 content.
 
+The extension builds the DCQL query from its mappers and supports two credential set modes,
+`optional` for one option per credential type and `all` for one option requesting every type.
+Richer combinations such as "both credentials or the PID alone" cannot be expressed by this
+verifier. The simulator handles them and covers them with tests.
+
 The admin console is at <http://localhost:8080/admin> with user `admin` and password `admin`.
 
 ## Trying revocation

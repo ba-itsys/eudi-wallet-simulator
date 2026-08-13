@@ -89,9 +89,14 @@ satisfiable claim set of a query is listed for selection.
 
 ![Credential picker](docs/wallet-picker.png)
 
-*Present credential* answers directly. *New from template & present* clones the selected
-credential, lets you change the claims, then issues and presents the new credential in one step.
-Every issued credential gets a fresh holder binding key.
+The alternatives are dropdowns. Choosing one switches the credential rows below to exactly the
+queries that alternative requests, which keeps the page readable when a verifier offers many
+combinations. The claim set dropdown per query works the same way and updates the disclosed
+claims shown on each credential.
+
+*Present credentials* answers with one presentation per requested query. Each query row has its
+own *New from template*, which clones the credential selected in that row, lets you change the
+claims, then issues and presents it. Every issued credential gets a fresh holder binding key.
 
 Conformance warnings appear on the picker when the verifier request violates OID4VP or HAIP. In
 `strict` mode such requests are refused and the wallet answers the verifier with an
@@ -100,27 +105,34 @@ responses are encrypted for `direct_post.jwt`.
 
 ## Automating the UI
 
-The UI is server rendered without JavaScript and every interactive element has a stable id.
-Playwright and similar frameworks can rely on these selectors.
+The UI is server rendered and every interactive element has a stable id. One small script toggles
+the visibility of the selected alternatives, everything else is plain form posts. Playwright and
+similar frameworks can rely on these selectors.
 
 | Selector | Element |
 |---|---|
 | `[data-credential-id="<id>"]` | Credential card on the home page and the picker |
 | `#select-<id>` | Radio button that selects a credential on the home page |
 | `#select-<queryId>-<id>` | Radio button on the picker, one group per DCQL credential query |
-| `#present-credential`, `#new-from-template-present`, `#cancel-presentation` | Actions on the picker |
+| `#present-credential`, `#cancel-presentation` | Actions on the picker |
+| `#new-from-template-<queryId>` | Clone the credential selected for that query and present it |
 | `#new-from-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
 | `#credential-id`, `#credential-name`, `#credential-vct`, `#validity-days` | Edit form header fields |
 | `#claim-<name>` | One input per claim on the edit form. Nested claims use dot notation, for example `claim-address.locality` |
 | `#always-disclosed-<name>` | Checkbox marking a claim as always disclosed |
-| `#set-option-<setIndex>-<optionIndex>`, `#set-option-<setIndex>-skip` | Credential set choice on the picker. The radio carries `data-query-ids` |
-| `#claim-set-<queryId>-<optionIndex>` | Claim set choice on the picker |
+| `#set-option-<setIndex>` | Credential set dropdown on the picker. Each option carries `data-query-ids`, the value `skip` drops an optional set |
+| `#claim-set-<queryId>` | Claim set dropdown for a query on the picker |
 | `#new-claim-name`, `#new-claim-value`, `#add-claim` | Add a claim on the edit form |
 | `#issue-credential`, `#cancel-edit` | Edit form actions |
 | `#conformance-warnings`, `#form-error` | Warning and error containers |
 
+Switch alternatives with `selectOption` on the dropdown. The rows of the other alternatives carry
+the `hidden` attribute, so a framework waiting for visibility naturally waits for the right row
+instead of clicking something the verifier did not ask for.
+
 A full flow needs no fixed waits. Each action is a plain form post and the next page contains the
-selectors above.
+selectors above. Clients that do not run scripts, for example curl, see all rows and can post the
+same form values directly. `examples/keycloak/smoke-test.sh` drives the whole login that way.
 
 ## Configuration
 

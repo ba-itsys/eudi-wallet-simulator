@@ -26,42 +26,38 @@
             No credential in this wallet matches the verifier's query.
         </div>
 
-        <div data-th-each="choice : ${setChoices}" data-th-if="${choice.options.size() > 1 or !choice.required}">
-            <h4>The verifier accepts alternatives</h4>
-            <div class="form-check" data-th-each="option, optStat : ${choice.options}">
-                <input class="form-check-input" type="radio"
-                       data-th-name="'setOption[' + ${choice.index} + ']'"
-                       data-th-id="'set-option-' + ${choice.index} + '-' + ${option.index}"
-                       data-th-value="${option.index}"
-                       data-th-attr="data-query-ids=${#strings.listJoin(option.queryIds, ',')}"
-                       data-th-checked="${optStat.first}"/>
-                <label class="form-check-label"
-                       data-th-for="'set-option-' + ${choice.index} + '-' + ${option.index}"
-                       data-th-text="'Present ' + ${option.label}">option</label>
-            </div>
-            <div class="form-check mb-3" data-th-unless="${choice.required}">
-                <input class="form-check-input" type="radio"
-                       data-th-name="'setOption[' + ${choice.index} + ']'"
-                       data-th-id="'set-option-' + ${choice.index} + '-skip'"
-                       value="skip"/>
-                <label class="form-check-label"
-                       data-th-for="'set-option-' + ${choice.index} + '-skip'">Do not present</label>
+        <div class="row g-2 mb-3" data-th-each="choice : ${setChoices}"
+             data-th-if="${choice.options.size() > 1 or !choice.required}">
+            <div class="col-8 form-floating">
+                <select class="form-select" data-alternatives-select
+                        data-th-id="'set-option-' + ${choice.index}"
+                        data-th-name="'setOption[' + ${choice.index} + ']'">
+                    <option data-th-each="option : ${choice.options}"
+                            data-th-value="${option.index}"
+                            data-th-attr="data-query-ids=${#strings.listJoin(option.queryIds, ',')}"
+                            data-th-text="'Present ' + ${option.label}">option</option>
+                    <option data-th-unless="${choice.required}" value="skip" data-query-ids="">
+                        Do not present
+                    </option>
+                </select>
+                <label data-th-for="'set-option-' + ${choice.index}">The verifier accepts alternatives</label>
             </div>
         </div>
 
-        <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.matches)}">
+        <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.matches)}"
+             data-th-attr="data-query-slot=${slot.queryId}">
             <h4 data-th-text="'Credentials for query ' + ${slot.queryId}">Credentials</h4>
-            <div class="mb-2" data-th-if="${slot.matches[0].claimSetOptions.size() > 1}">
-                <p class="mb-1">The verifier accepts several claim sets, choose which one to answer with:</p>
-                <div class="form-check" data-th-each="option : ${slot.matches[0].claimSetOptions}">
-                    <input class="form-check-input" type="radio"
-                           data-th-name="'claimSet[' + ${slot.queryId} + ']'"
-                           data-th-id="'claim-set-' + ${slot.queryId} + '-' + ${option.index}"
-                           data-th-value="${option.index}"
-                           data-th-checked="${option.index == slot.matches[0].claimSetOptions[0].index}"/>
-                    <label class="form-check-label"
-                           data-th-for="'claim-set-' + ${slot.queryId} + '-' + ${option.index}"
-                           data-th-text="${option.label}">claims</label>
+            <div class="row g-2 mb-3" data-th-if="${slot.claimSetOptions.size() > 1}">
+                <div class="col-8 form-floating">
+                    <select class="form-select" data-claim-set-select
+                            data-th-attr="data-query-id=${slot.queryId}"
+                            data-th-id="'claim-set-' + ${slot.queryId}"
+                            data-th-name="'claimSet[' + ${slot.queryId} + ']'">
+                        <option data-th-each="option : ${slot.claimSetOptions}"
+                                data-th-value="${option.index}"
+                                data-th-text="${option.label}">claims</option>
+                    </select>
+                    <label data-th-for="'claim-set-' + ${slot.queryId}">Claim set to answer with</label>
                 </div>
             </div>
             <div class="row row-cols-3 g-2 mb-3">
@@ -77,28 +73,31 @@
                                    data-th-for="'select-' + ${slot.queryId} + '-' + ${match.credential.id}">
                                 <strong data-th-text="${match.credential.name}">Credential</strong><br/>
                                 <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
-                                <small data-th-if="${match.claimSetOptions.size() == 1}">Disclosed claims:
-                                    <span data-th-text="${#strings.listJoin(match.claimsToDiscloseDisplay, ', ')}">claims</span>
-                                </small>
-                                <small data-th-if="${match.claimSetOptions.size() > 1}"
-                                       data-th-text="${match.claimSetOptions.size()} + ' claim set options'">options</small><br/>
+                                <small data-th-each="option : ${match.claimSetOptions}"
+                                       data-th-attr="data-claim-set-query=${slot.queryId},data-claim-set-option=${option.index}">Disclosed claims:
+                                    <span data-th-text="${option.label}">claims</span>
+                                </small><br/>
                                 <small class="text-muted">ID:</small> <code data-th-text="${match.credential.id}">id</code>
                             </label>
                         </div>
                     </div>
                 </div>
             </div>
+            <button type="submit" class="btn btn-outline-primary btn-sm mb-3"
+                    name="editQueryId" data-th-value="${slot.queryId}"
+                    data-th-id="'new-from-template-' + ${slot.queryId}"
+                    data-th-formaction="@{__${basepath}__/authorize/edit}"
+                    formnovalidate>New from template</button>
         </div>
 
         <button type="submit" class="btn btn-primary" id="present-credential" style="width:15rem"
-                data-th-disabled="${!satisfiable}">Present credential</button>
-        <button type="submit" class="btn btn-outline-primary" id="new-from-template-present" style="width:15rem"
-                data-th-formaction="@{__${basepath}__/authorize/edit}"
-                data-th-disabled="${!satisfiable}">New from template &amp; present</button>
+                data-th-disabled="${!satisfiable}"
+                data-th-text="${slots.size() > 1} ? 'Present credentials' : 'Present credential'">Present credential</button>
         <button type="submit" class="btn btn-secondary" id="cancel-presentation" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>
     </form>
 </div>
+<script src="" data-th-src="@{__${basepath}__/js/alternatives.js}"></script>
 <footer data-th-replace="~{fragments/snippets :: footer}"></footer>
 </body>
 </html>

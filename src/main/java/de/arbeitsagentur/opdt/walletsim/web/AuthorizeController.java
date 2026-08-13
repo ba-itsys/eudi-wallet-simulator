@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -128,6 +129,12 @@ public class AuthorizeController {
         return complete(result, model);
     }
 
+    private static Optional<String> firstNonBlank(String... values) {
+        return java.util.Arrays.stream(values)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst();
+    }
+
     private static int chosenClaimSetIndex(SelectionForm form, String queryId) {
         try {
             return Integer.parseInt(form.getClaimSet().getOrDefault(queryId, "0"));
@@ -160,13 +167,15 @@ public class AuthorizeController {
 
     @PostMapping("/authorize/edit")
     public String editDuringFlow(
+            @RequestParam(name = "editQueryId", required = false) String editQueryId,
             @RequestParam(name = "credentialId", required = false) String credentialId,
             @ModelAttribute SelectionForm form,
             Model model) {
-        String templateId = credentialId != null && !credentialId.isBlank()
-                ? credentialId
-                : form.firstSelectedCredentialId()
-                        .orElseThrow(() -> new InvalidRequestException("No credential selected for editing"));
+        String selectedForQuery =
+                editQueryId == null ? null : form.getSelection().get(editQueryId);
+        String templateId = firstNonBlank(selectedForQuery, credentialId)
+                .or(form::firstSelectedCredentialId)
+                .orElseThrow(() -> new InvalidRequestException("No credential selected for editing"));
         CredentialEditForm editForm = editForms.cloneForm(templateId);
         editForm.setFlowState(form.getFlowState());
         return editView(editForm, model);
