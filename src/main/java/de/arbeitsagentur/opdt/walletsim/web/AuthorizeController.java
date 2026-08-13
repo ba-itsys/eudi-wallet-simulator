@@ -4,20 +4,21 @@ import de.arbeitsagentur.opdt.walletsim.conformance.ConformanceSettings;
 import de.arbeitsagentur.opdt.walletsim.conformance.Finding;
 import de.arbeitsagentur.opdt.walletsim.conformance.RequestObjectValidator;
 import de.arbeitsagentur.opdt.walletsim.conformance.ValidationMode;
+import de.arbeitsagentur.opdt.walletsim.credentials.CredentialSource;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.CredentialMatch;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
-import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.CredentialMatch;
-import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.PresentationPlan;
-import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.QuerySlot;
-import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher.SetChoice;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlQuery;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.InvalidRequestException;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.PresentationPlan;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.QuerySlot;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.RequestObjectClient;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter;
-import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter.SubmissionResult;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SdJwtPresentationBuilder;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.SetChoice;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.SubmissionResult;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -152,7 +153,7 @@ public class AuthorizeController {
             if (optionIndex < 0 || optionIndex >= choice.options().size()) {
                 optionIndex = 0;
             }
-            requested.addAll(choice.options().get(optionIndex));
+            requested.addAll(choice.options().get(optionIndex).queryIds());
         }
         return requested;
     }
@@ -186,8 +187,7 @@ public class AuthorizeController {
             return editView(form, model);
         }
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
-        StoredCredential credential =
-                credentialService.issue(editForms.toDefinition(form), StoredCredential.Source.AD_HOC);
+        StoredCredential credential = credentialService.issue(editForms.toDefinition(form), CredentialSource.AD_HOC);
         PresentationPlan plan = plan(request);
         if (plan.slots().size() == 1) {
             QuerySlot slot = plan.slots().getFirst();

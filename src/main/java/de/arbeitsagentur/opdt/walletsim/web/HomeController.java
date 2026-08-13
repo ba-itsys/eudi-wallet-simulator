@@ -1,7 +1,6 @@
 package de.arbeitsagentur.opdt.walletsim.web;
 
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
-import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import java.util.List;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -9,8 +8,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
 public class HomeController {
-
-    public record CredentialCard(StoredCredential credential, int status) {}
 
     private final CredentialStore store;
 

@@ -18,10 +18,4 @@ public record StoredCredential(
         String sdJwt,
         int statusIndex,
         ECKey holderKey,
-        Source source) {
-
-    public enum Source {
-        PREDEFINED,
-        AD_HOC
-    }
-}
+        CredentialSource source) {}

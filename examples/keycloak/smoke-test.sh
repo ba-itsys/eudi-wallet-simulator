@@ -32,7 +32,7 @@ case "$WALLET_URL" in
 esac
 
 echo "3/5 Opening the simulator credential picker..."
-PICKER=$(curl -sS "$WALLET_URL")
+PICKER=$(curl -sS "$WALLET_URL" | tr '\n' ' ')
 printf '%s' "$PICKER" | grep -q 'data-credential-id="pid-maria-neumann"' || fail "picker does not offer the PID credential"
 FLOW_STATE=$(printf '%s' "$PICKER" | grep -o 'name="flowState" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"$//')
 [ -n "$FLOW_STATE" ] || fail "no flowState on the picker page"
@@ -40,9 +40,15 @@ QUERY_ID=$(printf '%s' "$PICKER" | grep -o 'id="select-[^"]*-pid-maria-neumann"'
   | sed 's/id="select-//;s/-pid-maria-neumann"//')
 [ -n "$QUERY_ID" ] || fail "no selection group for the PID credential on the picker"
 
+# the realm requests a credential set, so pick the option that contains the PID query
+SET_OPTION=$(printf '%s' "$PICKER" | tr '\n' ' ' | tr '<' '\n' \
+  | grep "set-option-0-.*data-query-ids=\"[^\"]*${QUERY_ID}" \
+  | grep -o 'id="set-option-0-[0-9]*"' | head -1 | tr -dc '0-9')
+
 echo "4/5 Presenting the credential..."
 REDIRECT=$(curl -sS -o /dev/null -w '%{redirect_url}' \
   --data-urlencode "selection[${QUERY_ID}]=pid-maria-neumann" \
+  ${SET_OPTION:+--data-urlencode "setOption[0]=${SET_OPTION}"} \
   --data-urlencode "flowState=${FLOW_STATE}" \
   "${SIMULATOR_URL}/authorize/submit")
 case "$REDIRECT" in

@@ -47,7 +47,7 @@ class ErrorHandlingTest {
                     .toEntity(String.class);
             assertThat(cancel.getStatusCode().is3xxRedirection()).isTrue();
 
-            TestVerifier.ReceivedResponse response = verifier.awaitResponse();
+            ReceivedResponse response = verifier.awaitResponse();
             String jwe = response.formParameters().get("response");
             assertThat(jwe)
                     .as("error response is encrypted for direct_post.jwt")

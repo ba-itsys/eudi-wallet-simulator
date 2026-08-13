@@ -6,6 +6,8 @@ with a signed SD-JWT VC presentation. It works with any OID4VP verifier. A ready
 with [keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp) is
 included.
 
+![Wallet content](docs/wallet-home.png)
+
 ## Quickstart
 
 ```sh
@@ -71,7 +73,7 @@ shows a complete working configuration.
 ## Using the UI
 
 The home page shows all wallet credentials as cards. You can revoke and activate them, clone one
-as a template with *Edit as template*, or create one from scratch with *New credential*. Every
+as a template with *New from template*, or create one from scratch with *New credential*. Every
 claim is a form field. Nested claims use dot notation, for example address.locality. A checkbox
 per claim marks it as always disclosed, which makes it a plain member of the credential body
 instead of a selectively disclosable one. In the seed file the same is expressed per credential
@@ -85,9 +87,11 @@ When the verifier accepts alternatives, you choose the outcome instead of the wa
 Credential set options are offered as a choice, optional sets can be skipped, and every
 satisfiable claim set of a query is listed for selection.
 
-*Present credential* answers directly. *Edit & present* clones the selected credential, lets you
-change the claims, then issues and presents the edited credential in one step. Every issued
-credential gets a fresh holder binding key.
+![Credential picker](docs/wallet-picker.png)
+
+*Present credential* answers directly. *New from template & present* clones the selected
+credential, lets you change the claims, then issues and presents the new credential in one step.
+Every issued credential gets a fresh holder binding key.
 
 Conformance warnings appear on the picker when the verifier request violates OID4VP or HAIP. In
 `strict` mode such requests are refused and the wallet answers the verifier with an
@@ -104,12 +108,12 @@ Playwright and similar frameworks can rely on these selectors.
 | `[data-credential-id="<id>"]` | Credential card on the home page and the picker |
 | `#select-<id>` | Radio button that selects a credential on the home page |
 | `#select-<queryId>-<id>` | Radio button on the picker, one group per DCQL credential query |
-| `#present-credential`, `#edit-and-present`, `#cancel-presentation` | Actions on the picker |
-| `#edit-as-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
+| `#present-credential`, `#new-from-template-present`, `#cancel-presentation` | Actions on the picker |
+| `#new-from-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
 | `#credential-id`, `#credential-name`, `#credential-vct`, `#validity-days` | Edit form header fields |
 | `#claim-<name>` | One input per claim on the edit form. Nested claims use dot notation, for example `claim-address.locality` |
 | `#always-disclosed-<name>` | Checkbox marking a claim as always disclosed |
-| `#set-option-<setIndex>-<optionIndex>`, `#set-option-<setIndex>-skip` | Credential set choice on the picker |
+| `#set-option-<setIndex>-<optionIndex>`, `#set-option-<setIndex>-skip` | Credential set choice on the picker. The radio carries `data-query-ids` |
 | `#claim-set-<queryId>-<optionIndex>` | Claim set choice on the picker |
 | `#new-claim-name`, `#new-claim-value`, `#add-claim` | Add a claim on the edit form |
 | `#issue-credential`, `#cancel-edit` | Edit form actions |

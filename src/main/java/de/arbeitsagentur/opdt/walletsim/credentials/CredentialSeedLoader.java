@@ -27,7 +27,7 @@ public class CredentialSeedLoader implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws IOException {
         for (CredentialDefinition definition : loadDefinitions()) {
-            credentialService.issue(definition, StoredCredential.Source.PREDEFINED);
+            credentialService.issue(definition, CredentialSource.PREDEFINED);
         }
     }
 

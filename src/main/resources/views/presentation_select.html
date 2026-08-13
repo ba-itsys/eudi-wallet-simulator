@@ -28,15 +28,16 @@
 
         <div data-th-each="choice : ${setChoices}" data-th-if="${choice.options.size() > 1 or !choice.required}">
             <h4>The verifier accepts alternatives</h4>
-            <div class="form-check" data-th-each="label, optStat : ${choice.optionLabels}">
+            <div class="form-check" data-th-each="option, optStat : ${choice.options}">
                 <input class="form-check-input" type="radio"
                        data-th-name="'setOption[' + ${choice.index} + ']'"
-                       data-th-id="'set-option-' + ${choice.index} + '-' + ${optStat.index}"
-                       data-th-value="${optStat.index}"
+                       data-th-id="'set-option-' + ${choice.index} + '-' + ${option.index}"
+                       data-th-value="${option.index}"
+                       data-th-attr="data-query-ids=${#strings.listJoin(option.queryIds, ',')}"
                        data-th-checked="${optStat.first}"/>
                 <label class="form-check-label"
-                       data-th-for="'set-option-' + ${choice.index} + '-' + ${optStat.index}"
-                       data-th-text="'Present ' + ${label}">option</label>
+                       data-th-for="'set-option-' + ${choice.index} + '-' + ${option.index}"
+                       data-th-text="'Present ' + ${option.label}">option</label>
             </div>
             <div class="form-check mb-3" data-th-unless="${choice.required}">
                 <input class="form-check-input" type="radio"
@@ -91,9 +92,9 @@
 
         <button type="submit" class="btn btn-primary" id="present-credential" style="width:15rem"
                 data-th-disabled="${!satisfiable}">Present credential</button>
-        <button type="submit" class="btn btn-outline-primary" id="edit-and-present" style="width:15rem"
+        <button type="submit" class="btn btn-outline-primary" id="new-from-template-present" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/edit}"
-                data-th-disabled="${!satisfiable}">Edit &amp; present (optional)</button>
+                data-th-disabled="${!satisfiable}">New from template &amp; present</button>
         <button type="submit" class="btn btn-secondary" id="cancel-presentation" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>
     </form>

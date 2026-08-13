@@ -86,7 +86,7 @@ class VpFlowTest {
                     .isTrue();
             assertThat(submit.getHeaders().getLocation().toString()).isEqualTo(verifier.redirectUri());
 
-            TestVerifier.ReceivedResponse response = verifier.awaitResponse();
+            ReceivedResponse response = verifier.awaitResponse();
             assertThat(response.formParameters().get("state")).isEqualTo(verifier.state());
 
             JsonNode vpToken =
@@ -114,7 +114,7 @@ class VpFlowTest {
                     .toEntity(String.class);
 
             assertThat(cancel.getStatusCode().is3xxRedirection()).isTrue();
-            TestVerifier.ReceivedResponse response = verifier.awaitResponse();
+            ReceivedResponse response = verifier.awaitResponse();
             assertThat(response.formParameters().get("error")).isEqualTo("access_denied");
             assertThat(response.formParameters().get("state")).isEqualTo(verifier.state());
         }

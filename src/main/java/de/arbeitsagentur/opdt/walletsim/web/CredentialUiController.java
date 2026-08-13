@@ -1,6 +1,6 @@
 package de.arbeitsagentur.opdt.walletsim.web;
 
-import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
+import de.arbeitsagentur.opdt.walletsim.credentials.CredentialSource;
 import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -58,7 +58,7 @@ public class CredentialUiController {
             model.addAttribute("formError", error);
             return editView(form, model);
         }
-        credentialService.issue(editForms.toDefinition(form), StoredCredential.Source.AD_HOC);
+        credentialService.issue(editForms.toDefinition(form), CredentialSource.AD_HOC);
         return "redirect:" + basepath + "/";
     }
 
