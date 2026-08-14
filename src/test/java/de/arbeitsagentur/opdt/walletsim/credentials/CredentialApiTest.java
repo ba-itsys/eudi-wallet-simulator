@@ -1,13 +1,14 @@
 package de.arbeitsagentur.opdt.walletsim.credentials;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -16,21 +17,17 @@ class CredentialApiTest {
     @LocalServerPort
     private int port;
 
-    private RestClient client() {
-        return RestClient.create("http://localhost:" + port);
-    }
-
     @Test
     void listsPredefinedCredentialsWithStableIds() {
         ResponseEntity<JsonNode> response =
-                client().get().uri("/api/credentials").retrieve().toEntity(JsonNode.class);
+                client(port).get().uri("/api/credentials").retrieve().toEntity(JsonNode.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode credentials = response.getBody();
         assertThat(credentials.isArray()).isTrue();
         assertThat(credentials.size()).isGreaterThanOrEqualTo(2);
 
-        JsonNode first = java.util.stream.StreamSupport.stream(credentials.spliterator(), false)
+        JsonNode first = StreamSupport.stream(credentials.spliterator(), false)
                 .filter(entry -> "pid-maria-neumann".equals(entry.get("id").asText()))
                 .findFirst()
                 .orElseThrow();
@@ -40,7 +37,7 @@ class CredentialApiTest {
         assertThat(first.hasNonNull("name")).isTrue();
         assertThat(first.get("claims").hasNonNull("family_name")).isTrue();
         assertThat(first.get("status").get("idx").isInt()).isTrue();
-        assertThat(first.get("status").get("uri").asText()).endsWith("/status-list");
+        assertThat(first.get("status").get("uri").asText()).endsWith("/api/status-list");
     }
 
     @Test
@@ -48,7 +45,7 @@ class CredentialApiTest {
         String id = "pid-maria-neumann";
 
         ResponseEntity<JsonNode> response =
-                client().get().uri("/api/credentials/{id}", id).retrieve().toEntity(JsonNode.class);
+                client(port).get().uri("/api/credentials/{id}", id).retrieve().toEntity(JsonNode.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode credential = response.getBody();
@@ -58,7 +55,8 @@ class CredentialApiTest {
 
     @Test
     void unknownCredentialIdYields404() {
-        ResponseEntity<String> response = client().get()
+        ResponseEntity<String> response = client(port)
+                .get()
                 .uri("/api/credentials/{id}", "does-not-exist")
                 .retrieve()
                 .onStatus(status -> true, (request, res) -> {})

@@ -1,5 +1,6 @@
 package de.arbeitsagentur.opdt.walletsim.conformance;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jose.JOSEObjectType;
@@ -16,12 +17,14 @@ import de.arbeitsagentur.opdt.walletsim.oid4vp.TestVerifier;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.web.client.RestClient;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 /**
  * Each conformance finding branch fires in debug mode and shows up on the picker page. One test
@@ -33,13 +36,6 @@ class ValidatorFindingsTest {
 
     @LocalServerPort
     private int port;
-
-    private RestClient client() {
-        return RestClient.builder()
-                .baseUrl("http://localhost:" + port)
-                .defaultStatusHandler(status -> true, (request, response) -> {})
-                .build();
-    }
 
     @Test
     void wrongTypHeaderIsAFinding() throws Exception {
@@ -127,6 +123,46 @@ class ValidatorFindingsTest {
     }
 
     @Test
+    void nonObjectDcqlEntriesAreFindingsAndDoNotBreakThePage() throws Exception {
+        Map<String, Object> malformedDcql = Map.of("credentials", List.of("not-an-object"));
+        try (TestVerifier verifier =
+                TestVerifier.pidVerifier().withRequestCustomizer(claims -> claims.put("dcql_query", malformedDcql))) {
+            ResponseEntity<String> page = page(verifier);
+
+            assertThat(page.getStatusCode())
+                    .as("debug mode still renders the wallet page")
+                    .isEqualTo(HttpStatus.OK);
+            assertThat(page.getBody()).contains("needs string");
+        }
+    }
+
+    @Test
+    void missingAudienceIsAFinding() throws Exception {
+        try (TestVerifier verifier = TestVerifier.pidVerifier().withRequestCustomizer(claims -> claims.remove("aud"))) {
+            assertThat(picker(verifier)).contains("aud must be https://self-issued.me/v2");
+        }
+    }
+
+    @Test
+    void missingResponseEncryptionMetadataAreFindings() throws Exception {
+        try (TestVerifier verifier = TestVerifier.pidVerifier()
+                .withEncryptedResponses()
+                .withRequestCustomizer(claims -> claims.put(
+                        "client_metadata",
+                        Map.of(
+                                "vp_formats_supported",
+                                Map.of("dc+sd-jwt", Map.of()),
+                                "jwks",
+                                Map.of("keys", List.of(Map.of("kty", "EC", "crv", "P-256", "x", "a", "y", "b"))))))) {
+            String picker = picker(verifier);
+
+            assertThat(picker).contains("must have a kid");
+            assertThat(picker).contains("must have an alg");
+            assertThat(picker).contains("encrypted_response_enc_values_supported");
+        }
+    }
+
+    @Test
     void garbageRegistrationCertificateIsAFinding() throws Exception {
         String data =
                 Base64URL.encode("not-a-jwt".getBytes(StandardCharsets.UTF_8)).toString();
@@ -145,7 +181,7 @@ class ValidatorFindingsTest {
                         .build(),
                 new JWTClaimsSet.Builder()
                         .subject("x509_hash:whatever")
-                        .expirationTime(new java.util.Date(System.currentTimeMillis() + 60000))
+                        .expirationTime(new Date(System.currentTimeMillis() + 60000))
                         .build());
         foreignCertificate.sign(new ECDSASigner(foreignKey));
         String data = Base64URL.encode(foreignCertificate.serialize().getBytes(StandardCharsets.UTF_8))
@@ -169,10 +205,18 @@ class ValidatorFindingsTest {
     }
 
     private String picker(TestVerifier verifier, String urlClientId) throws Exception {
+        return page(verifier, urlClientId).getBody();
+    }
+
+    private ResponseEntity<String> page(TestVerifier verifier) throws Exception {
+        return page(verifier, verifier.clientId());
+    }
+
+    private ResponseEntity<String> page(TestVerifier verifier, String urlClientId) throws Exception {
         URI uri = URI.create("http://localhost:" + port + "/authorize?client_id="
                 + URLEncoder.encode(urlClientId, StandardCharsets.UTF_8)
                 + "&request_uri="
                 + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
-        return client().get().uri(uri).retrieve().body(String.class);
+        return client(port).get().uri(uri).retrieve().toEntity(String.class);
     }
 }

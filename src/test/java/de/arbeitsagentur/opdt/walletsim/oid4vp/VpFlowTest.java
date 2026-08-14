@@ -1,7 +1,13 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.disclosures;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.hiddenField;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.issuerJwt;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.keyBindingJwt;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.authlete.sd.Disclosure;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.util.Base64URL;
@@ -12,7 +18,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.interfaces.ECPublicKey;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -22,7 +27,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -50,13 +54,6 @@ class VpFlowTest {
     @Autowired
     private SimulatorPki pki;
 
-    private RestClient client() {
-        return RestClient.builder()
-                .baseUrl("http://localhost:" + port)
-                .defaultStatusHandler(status -> true, (request, response) -> {})
-                .build();
-    }
-
     @Test
     void sameDeviceFlowProducesVerifiablePresentationAndRedirects() throws Exception {
         try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
@@ -66,14 +63,15 @@ class VpFlowTest {
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
 
             ResponseEntity<String> picker =
-                    client().get().uri(authorizeUrl).retrieve().toEntity(String.class);
+                    client(port).get().uri(authorizeUrl).retrieve().toEntity(String.class);
             assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(picker.getBody()).contains("data-credential-id=\"pid-maria-neumann\"");
             assertThat(picker.getBody()).contains("name=\"flowState\"");
 
-            String flowState = extractHiddenField(picker.getBody(), "flowState");
+            String flowState = hiddenField(picker.getBody(), "flowState");
 
-            ResponseEntity<String> submit = client().post()
+            ResponseEntity<String> submit = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
@@ -103,10 +101,11 @@ class VpFlowTest {
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
                     + "&request_uri="
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
-            String flowState = extractHiddenField(
-                    client().get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
+            String flowState =
+                    hiddenField(client(port).get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
 
-            ResponseEntity<String> cancel = client().post()
+            ResponseEntity<String> cancel = client(port)
+                    .post()
                     .uri("/authorize/cancel")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
@@ -127,10 +126,11 @@ class VpFlowTest {
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
                     + "&request_uri="
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
-            String flowState = extractHiddenField(
-                    client().get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
+            String flowState =
+                    hiddenField(client(port).get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
 
-            ResponseEntity<String> submit = client().post()
+            ResponseEntity<String> submit = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
@@ -144,24 +144,17 @@ class VpFlowTest {
     }
 
     private void verifyPresentation(String presentation, TestVerifier verifier) throws Exception {
-        String[] parts = presentation.split("~");
-        assertThat(parts.length).as("issuer JWT, disclosures, KB-JWT").isGreaterThanOrEqualTo(3);
-
-        SignedJWT issuerJwt = SignedJWT.parse(parts[0]);
+        SignedJWT issuerJwt = issuerJwt(presentation);
         assertThat(issuerJwt.verify(
                         new ECDSAVerifier((ECPublicKey) pki.issuerCertificate().getPublicKey())))
                 .isTrue();
 
-        List<String> disclosedNames = List.of(parts).subList(1, parts.length - 1).stream()
-                .map(part -> new String(Base64.getUrlDecoder().decode(part), StandardCharsets.UTF_8))
-                .toList();
-        assertThat(disclosedNames).anyMatch(d -> d.contains("\"family_name\""));
-        assertThat(disclosedNames).anyMatch(d -> d.contains("\"given_name\""));
-        assertThat(disclosedNames)
-                .as("only requested claims are disclosed")
-                .noneMatch(d -> d.contains("\"birthdate\""));
+        List<String> disclosedNames =
+                disclosures(presentation).stream().map(Disclosure::getClaimName).toList();
+        assertThat(disclosedNames).contains("family_name", "given_name");
+        assertThat(disclosedNames).as("only requested claims are disclosed").doesNotContain("birthdate");
 
-        SignedJWT kbJwt = SignedJWT.parse(parts[parts.length - 1]);
+        SignedJWT kbJwt = keyBindingJwt(presentation);
         assertThat(kbJwt.getHeader().getType().toString()).isEqualTo("kb+jwt");
         Map<String, Object> cnf = asMap(issuerJwt.getJWTClaimsSet().getClaim("cnf"));
         ECKey holderKey = ECKey.parse(new ObjectMapper().writeValueAsString(cnf.get("jwk")));
@@ -171,19 +164,12 @@ class VpFlowTest {
         assertThat(kbJwt.getJWTClaimsSet().getAudience()).containsExactly(verifier.clientId());
         assertThat(kbClaims.get("nonce")).isEqualTo(verifier.nonce());
 
+        // recomputed here the way a verifier does it, rather than asking the library again
         String presented = presentation.substring(0, presentation.lastIndexOf('~') + 1);
         String expectedSdHash = Base64URL.encode(
                         MessageDigest.getInstance("SHA-256").digest(presented.getBytes(StandardCharsets.US_ASCII)))
                 .toString();
         assertThat(kbClaims.get("sd_hash")).isEqualTo(expectedSdHash);
-    }
-
-    private static String extractHiddenField(String html, String name) {
-        String marker = "name=\"" + name + "\" value=\"";
-        int start = html.indexOf(marker);
-        assertThat(start).as("hidden field '%s' present", name).isNotNegative();
-        start += marker.length();
-        return html.substring(start, html.indexOf('"', start));
     }
 
     @SuppressWarnings("unchecked")

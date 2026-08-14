@@ -1,8 +1,8 @@
 package de.arbeitsagentur.opdt.walletsim.web;
 
+import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialSource;
 import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -23,15 +23,13 @@ public class CredentialUiController {
 
     private final WalletCredentialService credentialService;
     private final CredentialEditForms editForms;
-    private final String basepath;
+    private final AppProperties properties;
 
     public CredentialUiController(
-            WalletCredentialService credentialService,
-            CredentialEditForms editForms,
-            @Value("${app.basepath:}") String basepath) {
+            WalletCredentialService credentialService, CredentialEditForms editForms, AppProperties properties) {
         this.credentialService = credentialService;
         this.editForms = editForms;
-        this.basepath = basepath == null ? "" : basepath;
+        this.properties = properties;
     }
 
     @PostMapping("/credentials/edit")
@@ -59,18 +57,19 @@ public class CredentialUiController {
             return editView(form, model);
         }
         credentialService.issue(editForms.toDefinition(form), CredentialSource.AD_HOC);
-        return "redirect:" + basepath + "/";
+        return "redirect:" + properties.basepath() + "/";
     }
 
     private String editView(CredentialEditForm form, Model model) {
         model.addAttribute("form", form);
-        model.addAttribute("formAction", basepath + "/credentials/save");
+        model.addAttribute("formAction", properties.basepath() + "/credentials/save");
         return "credential_edit";
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public String unknownCredential(IllegalArgumentException exception, Model model) {
+        model.addAttribute("errorTitle", "Unknown credential");
         model.addAttribute("errorMessage", exception.getMessage());
         return "error_view";
     }

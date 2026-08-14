@@ -8,7 +8,7 @@ import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
+import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * Registrar for relying-party registration certificates (EUDI): issues rc-rp+jwt tokens
@@ -33,11 +34,11 @@ public class RegistrationCertificateService {
     private static final long VALIDITY_DAYS = 365;
 
     private final SimulatorPki pki;
-    private final AppUrls urls;
+    private final AppProperties properties;
 
-    public RegistrationCertificateService(SimulatorPki pki, AppUrls urls) {
+    public RegistrationCertificateService(SimulatorPki pki, AppProperties properties) {
         this.pki = pki;
-        this.urls = urls;
+        this.properties = properties;
     }
 
     // Issues a registration certificate for the given relying party client_id.
@@ -45,13 +46,13 @@ public class RegistrationCertificateService {
         try {
             Instant now = Instant.now();
             JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
-                    .issuer(urls.baseUrl() + "/registrar")
+                    .issuer(properties.baseUrl() + "/registrar")
                     .subject(clientId)
                     .issueTime(Date.from(now))
                     .notBeforeTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(VALIDITY_DAYS, ChronoUnit.DAYS)))
                     .claim("status", "active");
-            if (purpose != null && !purpose.isBlank()) {
+            if (StringUtils.hasText(purpose)) {
                 claims.claim("purpose", purpose);
             }
             SignedJWT jwt = new SignedJWT(

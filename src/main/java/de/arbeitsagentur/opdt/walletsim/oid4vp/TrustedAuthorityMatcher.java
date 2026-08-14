@@ -1,10 +1,12 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
+import com.authlete.sd.SDJWT;
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
-import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
+import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
+import de.arbeitsagentur.opdt.walletsim.trustlist.TrustList;
 import de.arbeitsagentur.opdt.walletsim.trustlist.TrustListProfile;
 import de.arbeitsagentur.opdt.walletsim.trustlist.TrustListService;
 import java.io.ByteArrayInputStream;
@@ -19,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Evaluates trusted_authorities queries (OID4VP 1.0 §6.1.1) against a credential's issuer chain.
@@ -31,13 +34,16 @@ public class TrustedAuthorityMatcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(TrustedAuthorityMatcher.class);
 
-    private final RestClient restClient = RestClient.create();
     private final Map<String, List<X509Certificate>> trustListCache = new ConcurrentHashMap<>();
-    private final AppUrls urls;
+    private final RestClient restClient = RestClient.create();
+    private final ObjectMapper objectMapper;
+    private final AppProperties properties;
     private final TrustListService trustListService;
 
-    public TrustedAuthorityMatcher(AppUrls urls, TrustListService trustListService) {
-        this.urls = urls;
+    public TrustedAuthorityMatcher(
+            ObjectMapper objectMapper, AppProperties properties, TrustListService trustListService) {
+        this.objectMapper = objectMapper;
+        this.properties = properties;
         this.trustListService = trustListService;
     }
 
@@ -130,28 +136,21 @@ public class TrustedAuthorityMatcher {
     }
 
     private TrustListProfile ownTrustList(String trustListUrl) {
-        if (trustListUrl.equals(urls.credentialsTrustListUri())) {
+        if (trustListUrl.equals(properties.credentialsTrustListUri())) {
             return TrustListProfile.CREDENTIALS;
         }
-        if (trustListUrl.equals(urls.walletProvidersTrustListUri())) {
+        if (trustListUrl.equals(properties.walletProvidersTrustListUri())) {
             return TrustListProfile.WALLET_PROVIDERS;
         }
         return null;
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<X509Certificate> parseTrustListCertificates(String jwt) throws Exception {
-        Map<String, Object> claims = SignedJWT.parse(jwt).getJWTClaimsSet().getClaims();
-        Map<String, Object> lote = (Map<String, Object>) claims.get("LoTE");
-        List<Map<String, Object>> entities = (List<Map<String, Object>>) lote.get("TrustedEntitiesList");
+    private List<X509Certificate> parseTrustListCertificates(String jwt) throws Exception {
+        Object lote = SignedJWT.parse(jwt).getJWTClaimsSet().getClaim(TrustListService.LOTE_CLAIM);
+        TrustList trustList = objectMapper.convertValue(lote, TrustList.class);
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        return entities.stream()
-                .flatMap(entity -> ((List<Map<String, Object>>) entity.get("TrustedEntityServices")).stream())
-                .map(service -> (Map<String, Object>) service.get("ServiceInformation"))
-                .map(info -> (Map<String, Object>) info.get("ServiceDigitalIdentity"))
-                .flatMap(identity -> ((List<Map<String, Object>>) identity.get("X509Certificates")).stream())
-                .map(entry -> parseCertificate(certificateFactory, (String) entry.get("val")))
-                .distinct()
+        return trustList.certificateValues().stream()
+                .map(value -> parseCertificate(certificateFactory, value))
                 .toList();
     }
 
@@ -166,7 +165,8 @@ public class TrustedAuthorityMatcher {
 
     private static List<X509Certificate> certificateChain(StoredCredential credential) {
         try {
-            SignedJWT issuerJwt = SignedJWT.parse(credential.sdJwt().split("~")[0]);
+            SignedJWT issuerJwt =
+                    SignedJWT.parse(SDJWT.parse(credential.sdJwt()).getCredentialJwt());
             List<Base64> x5c = issuerJwt.getHeader().getX509CertChain();
             if (x5c == null || x5c.isEmpty()) {
                 return List.of();

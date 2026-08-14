@@ -3,6 +3,7 @@ package de.arbeitsagentur.opdt.walletsim.pki;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,5 +33,18 @@ class PkiPersistenceTest {
                 .isEqualTo(first.registrarPrivateKey().getEncoded());
         assertThat(second.holderKey().toECPrivateKey().getEncoded())
                 .isEqualTo(first.holderKey().toECPrivateKey().getEncoded());
+    }
+
+    @Test
+    void certificatesOfOneIssuerGetDistinctSerialNumbers(@TempDir Path freshDir) {
+        SimulatorPki pki = new SimulatorPki(freshDir);
+
+        assertThat(List.of(
+                        pki.caCertificate().getSerialNumber(),
+                        pki.issuerCertificate().getSerialNumber(),
+                        pki.walletProviderCertificate().getSerialNumber(),
+                        pki.registrarCertificate().getSerialNumber()))
+                .as("certificates created in the same millisecond must not share a serial")
+                .doesNotHaveDuplicates();
     }
 }

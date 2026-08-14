@@ -1,18 +1,20 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.authorizeUri;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.disclosures;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.hiddenField;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.net.URI;
+import com.authlete.sd.Disclosure;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -26,13 +28,6 @@ class CredentialAndClaimSetsTest {
 
     @LocalServerPort
     private int port;
-
-    private RestClient client() {
-        return RestClient.builder()
-                .baseUrl("http://localhost:" + port)
-                .defaultStatusHandler(status -> true, (request, response) -> {})
-                .build();
-    }
 
     @Test
     void claimSetsFallBackToTheFirstSatisfiableOption() throws Exception {
@@ -51,12 +46,16 @@ class CredentialAndClaimSetsTest {
                 }]}
                 """;
         try (TestVerifier verifier = new TestVerifier(dcql)) {
-            String picker =
-                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
+            String picker = client(port)
+                    .get()
+                    .uri(authorizeUri(port, verifier))
+                    .retrieve()
+                    .body(String.class);
             assertThat(picker).contains("data-credential-id=\"pid-maria-neumann\"");
-            String flowState = extractHiddenField(picker, "flowState");
+            String flowState = hiddenField(picker, "flowState");
 
-            ResponseEntity<String> submit = client().post()
+            ResponseEntity<String> submit = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
@@ -67,11 +66,10 @@ class CredentialAndClaimSetsTest {
 
             List<String> disclosedNames = disclosedClaimNames(
                     presentation(verifier.awaitResponse().formParameters().get("vp_token"), "pid"));
-            assertThat(disclosedNames).anyMatch(d -> d.contains("\"family_name\""));
-            assertThat(disclosedNames).anyMatch(d -> d.contains("\"given_name\""));
+            assertThat(disclosedNames).contains("family_name", "given_name");
             assertThat(disclosedNames)
                     .as("only the satisfied claim set option is disclosed")
-                    .noneMatch(d -> d.contains("\"birthdate\""));
+                    .doesNotContain("birthdate");
         }
     }
 
@@ -93,13 +91,17 @@ class CredentialAndClaimSetsTest {
                 ]}
                 """;
         try (TestVerifier verifier = new TestVerifier(dcql)) {
-            String picker =
-                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
+            String picker = client(port)
+                    .get()
+                    .uri(authorizeUri(port, verifier))
+                    .retrieve()
+                    .body(String.class);
             assertThat(picker).contains("id=\"select-pid1-pid-maria-neumann\"");
             assertThat(picker).contains("id=\"select-pid2-pid-thomas-bauer\"");
-            String flowState = extractHiddenField(picker, "flowState");
+            String flowState = hiddenField(picker, "flowState");
 
-            ResponseEntity<String> submit = client().post()
+            ResponseEntity<String> submit = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("selection%5Bpid1%5D=pid-maria-neumann"
@@ -110,8 +112,9 @@ class CredentialAndClaimSetsTest {
             assertThat(submit.getStatusCode().is3xxRedirection()).isTrue();
 
             String vpToken = verifier.awaitResponse().formParameters().get("vp_token");
-            assertThat(disclosedClaimNames(presentation(vpToken, "pid1"))).anyMatch(d -> d.contains("Neumann"));
-            assertThat(disclosedClaimNames(presentation(vpToken, "pid2"))).anyMatch(d -> d.contains("Thomas"));
+            assertThat(disclosedClaimValues(presentation(vpToken, "pid1"))).contains("Neumann");
+            // German PID values are upper case, following ICAO Doc 9303
+            assertThat(disclosedClaimValues(presentation(vpToken, "pid2"))).contains("THOMAS");
             assertThat(new ObjectMapper().readValue(vpToken, JsonNode.class).has("bank"))
                     .as("the unsatisfiable optional set is omitted")
                     .isFalse();
@@ -134,16 +137,20 @@ class CredentialAndClaimSetsTest {
     @Test
     void alternativeSetOptionsAreUserSelectable() throws Exception {
         try (TestVerifier verifier = new TestVerifier(ALTERNATIVES_DCQL)) {
-            String picker =
-                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
+            String picker = client(port)
+                    .get()
+                    .uri(authorizeUri(port, verifier))
+                    .retrieve()
+                    .body(String.class);
             assertThat(picker)
                     .as("the alternatives are offered as a dropdown")
                     .contains("id=\"set-option-0\"")
                     .contains("data-query-ids=\"pid,extra\"")
                     .contains("data-query-ids=\"pid\"");
-            String flowState = extractHiddenField(picker, "flowState");
+            String flowState = hiddenField(picker, "flowState");
 
-            ResponseEntity<String> submit = client().post()
+            ResponseEntity<String> submit = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("setOption%5B0%5D=1"
@@ -166,11 +173,15 @@ class CredentialAndClaimSetsTest {
     @Test
     void alternativeSetDefaultsToTheFirstOption() throws Exception {
         try (TestVerifier verifier = new TestVerifier(ALTERNATIVES_DCQL)) {
-            String picker =
-                    client().get().uri(authorizeUri(verifier)).retrieve().body(String.class);
-            String flowState = extractHiddenField(picker, "flowState");
+            String picker = client(port)
+                    .get()
+                    .uri(authorizeUri(port, verifier))
+                    .retrieve()
+                    .body(String.class);
+            String flowState = hiddenField(picker, "flowState");
 
-            ResponseEntity<String> submit = client().post()
+            ResponseEntity<String> submit = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("setOption%5B0%5D=0"
@@ -199,24 +210,12 @@ class CredentialAndClaimSetsTest {
     }
 
     private static List<String> disclosedClaimNames(String presentation) {
-        String[] parts = presentation.split("~");
-        return List.of(parts).subList(1, parts.length - 1).stream()
-                .map(part -> new String(Base64.getUrlDecoder().decode(part), StandardCharsets.UTF_8))
+        return disclosures(presentation).stream().map(Disclosure::getClaimName).toList();
+    }
+
+    private static List<String> disclosedClaimValues(String presentation) {
+        return disclosures(presentation).stream()
+                .map(disclosure -> String.valueOf(disclosure.getClaimValue()))
                 .toList();
-    }
-
-    private static String extractHiddenField(String html, String name) {
-        String marker = "name=\"" + name + "\" value=\"";
-        int start = html.indexOf(marker);
-        assertThat(start).as("hidden field '%s' present", name).isNotNegative();
-        start += marker.length();
-        return html.substring(start, html.indexOf('"', start));
-    }
-
-    private URI authorizeUri(TestVerifier verifier) {
-        return URI.create("http://localhost:" + port + "/authorize?client_id="
-                + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
-                + "&request_uri="
-                + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
     }
 }

@@ -1,16 +1,15 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
 import com.authlete.sd.Disclosure;
+import com.authlete.sd.SDJWT;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
-import com.nimbusds.jose.util.Base64URL;
+import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -26,55 +25,64 @@ import org.springframework.stereotype.Component;
  * is released when its position is an ancestor or a descendant of a requested path, so nested
  * claims like address.locality disclose the address container and the locality but not the
  * sibling street_address.
+ *
+ * <p>Serialization, disclosure parsing and the sd_hash over the presented part come from the
+ * SD-JWT library. Which disclosure sits at which claim path does not, so the wallet walks the
+ * encoded payload for that.
  */
 @Component
 public class SdJwtPresentationBuilder {
 
+    private static final JOSEObjectType KEY_BINDING_JWT_TYPE = new JOSEObjectType("kb+jwt");
+    private static final String DIGEST_ARRAY = "_sd";
+    private static final String HASH_ALGORITHM = "_sd_alg";
+    private static final String ARRAY_ELEMENT_DIGEST = "...";
+
     public String build(
             StoredCredential credential, List<List<Object>> claimPathsToDisclose, String audience, String nonce) {
         try {
-            String[] parts = credential.sdJwt().split("~");
-            SignedJWT issuerJwt = SignedJWT.parse(parts[0]);
+            SDJWT issued = SDJWT.parse(credential.sdJwt());
+            List<Disclosure> disclosed = disclosuresFor(issued, claimPathsToDisclose);
 
-            Map<String, Disclosure> byDigest = new HashMap<>();
-            List<Disclosure> allDisclosures = new ArrayList<>();
-            for (int i = 1; i < parts.length; i++) {
-                Disclosure disclosure = Disclosure.parse(parts[i]);
-                allDisclosures.add(disclosure);
-                byDigest.put(disclosure.digest(), disclosure);
-            }
-            Map<Disclosure, List<Object>> positions = new LinkedHashMap<>();
-            collectPositions(issuerJwt.getJWTClaimsSet().getClaims(), List.of(), byDigest, positions);
+            // the sd_hash covers the credential JWT and the released disclosures only (RFC 9901 §4.3.1)
+            String sdHash = new SDJWT(issued.getCredentialJwt(), disclosed).getSDHash();
+            String keyBindingJwt = keyBindingJwt(sdHash, audience, nonce, credential.holderKey());
 
-            StringBuilder presentation = new StringBuilder(parts[0]);
-            for (Disclosure disclosure : allDisclosures) {
-                List<Object> position = positions.get(disclosure);
-                if (position != null && isNeeded(position, claimPathsToDisclose)) {
-                    presentation.append('~').append(disclosure.getDisclosure());
-                }
-            }
-            presentation.append('~');
-
-            String sdHash = Base64URL.encode(MessageDigest.getInstance("SHA-256")
-                            .digest(presentation.toString().getBytes(StandardCharsets.US_ASCII)))
-                    .toString();
-            JWTClaimsSet kbClaims = new JWTClaimsSet.Builder()
-                    .audience(audience)
-                    .issueTime(Date.from(Instant.now()))
-                    .claim("nonce", nonce)
-                    .claim("sd_hash", sdHash)
-                    .build();
-            SignedJWT kbJwt = new SignedJWT(
-                    new JWSHeader.Builder(JWSAlgorithm.ES256)
-                            .type(new JOSEObjectType("kb+jwt"))
-                            .build(),
-                    kbClaims);
-            kbJwt.sign(new ECDSASigner(credential.holderKey()));
-
-            return presentation.append(kbJwt.serialize()).toString();
+            return new SDJWT(issued.getCredentialJwt(), disclosed, keyBindingJwt).toString();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to build SD-JWT presentation for " + credential.id(), e);
         }
+    }
+
+    private static List<Disclosure> disclosuresFor(SDJWT issued, List<List<Object>> requestedPaths) throws Exception {
+        Map<String, Disclosure> byDigest = new HashMap<>();
+        issued.getDisclosures().forEach(disclosure -> byDigest.put(disclosure.digest(), disclosure));
+
+        Map<Disclosure, List<Object>> positions = new LinkedHashMap<>();
+        Map<String, Object> payload =
+                SignedJWT.parse(issued.getCredentialJwt()).getJWTClaimsSet().getClaims();
+        collectPositions(payload, List.of(), byDigest, positions);
+
+        return issued.getDisclosures().stream()
+                .filter(disclosure -> isNeeded(positions.get(disclosure), requestedPaths))
+                .toList();
+    }
+
+    private static String keyBindingJwt(String sdHash, String audience, String nonce, ECKey holderKey)
+            throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .audience(audience)
+                .issueTime(Date.from(Instant.now()))
+                .claim("nonce", nonce)
+                .claim("sd_hash", sdHash)
+                .build();
+        SignedJWT jwt = new SignedJWT(
+                new JWSHeader.Builder(JWSAlgorithm.ES256)
+                        .type(KEY_BINDING_JWT_TYPE)
+                        .build(),
+                claims);
+        jwt.sign(new ECDSASigner(holderKey));
+        return jwt.serialize();
     }
 
     // walks the encoded structure to find each disclosure's claim path, following digests through
@@ -83,7 +91,7 @@ public class SdJwtPresentationBuilder {
     private static void collectPositions(
             Object node, List<Object> path, Map<String, Disclosure> byDigest, Map<Disclosure, List<Object>> positions) {
         if (node instanceof Map<?, ?> map) {
-            if (map.get("_sd") instanceof List<?> digests) {
+            if (map.get(DIGEST_ARRAY) instanceof List<?> digests) {
                 for (Object digest : digests) {
                     Disclosure disclosure = byDigest.get(String.valueOf(digest));
                     if (disclosure != null) {
@@ -94,15 +102,15 @@ public class SdJwtPresentationBuilder {
                 }
             }
             for (Map.Entry<String, Object> entry : ((Map<String, Object>) map).entrySet()) {
-                if (!"_sd".equals(entry.getKey()) && !"_sd_alg".equals(entry.getKey())) {
+                if (!DIGEST_ARRAY.equals(entry.getKey()) && !HASH_ALGORITHM.equals(entry.getKey())) {
                     collectPositions(entry.getValue(), childPath(path, entry.getKey()), byDigest, positions);
                 }
             }
         } else if (node instanceof List<?> list) {
             for (int i = 0; i < list.size(); i++) {
                 Object element = list.get(i);
-                if (element instanceof Map<?, ?> arrayElement && arrayElement.get("...") != null) {
-                    Disclosure disclosure = byDigest.get(String.valueOf(arrayElement.get("...")));
+                if (element instanceof Map<?, ?> arrayElement && arrayElement.get(ARRAY_ELEMENT_DIGEST) != null) {
+                    Disclosure disclosure = byDigest.get(String.valueOf(arrayElement.get(ARRAY_ELEMENT_DIGEST)));
                     if (disclosure != null) {
                         List<Object> position = childPath(path, i);
                         positions.put(disclosure, position);
@@ -122,7 +130,7 @@ public class SdJwtPresentationBuilder {
     }
 
     private static boolean isNeeded(List<Object> position, List<List<Object>> requestedPaths) {
-        return requestedPaths.stream().anyMatch(requested -> isRelated(position, requested));
+        return position != null && requestedPaths.stream().anyMatch(requested -> isRelated(position, requested));
     }
 
     // ancestor-or-descendant relation between a disclosure position and a requested claim path

@@ -1,17 +1,15 @@
 package de.arbeitsagentur.opdt.walletsim.conformance;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.authorizeUri;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ReceivedResponse;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.TestVerifier;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -25,16 +23,9 @@ class StrictModeTest {
     @LocalServerPort
     private int port;
 
-    private RestClient client() {
-        return RestClient.builder()
-                .baseUrl("http://localhost:" + port)
-                .defaultStatusHandler(status -> true, (request, response) -> {})
-                .build();
-    }
-
     @Test
     void configReportsStrictMode() {
-        JsonNode config = client().get().uri("/api/config").retrieve().body(JsonNode.class);
+        JsonNode config = client(port).get().uri("/api/config").retrieve().body(JsonNode.class);
         assertThat(config.get("mode").asText()).isEqualTo("strict");
     }
 
@@ -42,8 +33,11 @@ class StrictModeTest {
     void strictModeRefusesAndSendsInvalidRequestToTheVerifier() throws Exception {
         try (TestVerifier verifier =
                 TestVerifier.pidVerifier().withRequestCustomizer(claims -> claims.remove("nonce"))) {
-            ResponseEntity<String> page =
-                    client().get().uri(authorizeUri(verifier)).retrieve().toEntity(String.class);
+            ResponseEntity<String> page = client(port)
+                    .get()
+                    .uri(authorizeUri(port, verifier))
+                    .retrieve()
+                    .toEntity(String.class);
 
             assertThat(page.getBody()).contains("nonce");
             assertThat(page.getBody())
@@ -55,12 +49,5 @@ class StrictModeTest {
             assertThat(response.formParameters().get("error_description")).contains("nonce");
             assertThat(response.formParameters().get("state")).isEqualTo(verifier.state());
         }
-    }
-
-    private URI authorizeUri(TestVerifier verifier) {
-        return URI.create("http://localhost:" + port + "/authorize?client_id="
-                + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
-                + "&request_uri="
-                + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
     }
 }

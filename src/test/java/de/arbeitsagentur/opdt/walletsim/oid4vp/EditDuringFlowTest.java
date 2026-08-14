@@ -1,13 +1,15 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.disclosures;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.hiddenField;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.issuerJwt;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jwt.SignedJWT;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,7 +17,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -40,13 +41,6 @@ class EditDuringFlowTest {
     @LocalServerPort
     private int port;
 
-    private RestClient client() {
-        return RestClient.builder()
-                .baseUrl("http://localhost:" + port)
-                .defaultStatusHandler(status -> true, (request, response) -> {})
-                .build();
-    }
-
     @Test
     void editedCredentialIsIssuedAndPreselectedForPresentation() throws Exception {
         try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
@@ -54,11 +48,12 @@ class EditDuringFlowTest {
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
                     + "&request_uri="
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
-            String picker = client().get().uri(authorizeUrl).retrieve().body(String.class);
-            String flowState = extractHiddenField(picker, "flowState");
+            String picker = client(port).get().uri(authorizeUrl).retrieve().body(String.class);
+            String flowState = hiddenField(picker, "flowState");
             assertThat(picker).contains("/authorize/edit");
 
-            ResponseEntity<String> editForm = client().post()
+            ResponseEntity<String> editForm = client(port)
+                    .post()
                     .uri("/authorize/edit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("credentialId=pid-maria-neumann&flowState="
@@ -74,7 +69,8 @@ class EditDuringFlowTest {
                     .contains("value=\"pid-maria-neumann\"")
                     .contains("name=\"statusIndex\"");
 
-            ResponseEntity<String> save = client().post()
+            ResponseEntity<String> save = client(port)
+                    .post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("id=pid-maria-neumann&statusIndex=0&name="
@@ -101,7 +97,8 @@ class EditDuringFlowTest {
                     .contains("checked");
             assertThat(save.getBody()).contains("modified for this presentation");
 
-            JsonNode stored = client().get()
+            JsonNode stored = client(port)
+                    .get()
                     .uri("/api/credentials/pid-maria-neumann")
                     .retrieve()
                     .body(JsonNode.class);
@@ -109,8 +106,9 @@ class EditDuringFlowTest {
                     .as("editing during a flow does not change the wallet content")
                     .isEqualTo("Neumann");
 
-            String carried = extractHiddenField(save.getBody(), "singlePresentationCredential");
-            ResponseEntity<String> present = client().post()
+            String carried = hiddenField(save.getBody(), "singlePresentationCredential");
+            ResponseEntity<String> present = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("selection%5Bpid%5D=pid-maria-neumann&singlePresentationCredential="
@@ -124,14 +122,10 @@ class EditDuringFlowTest {
             JsonNode vpToken =
                     new ObjectMapper().readValue(response.formParameters().get("vp_token"), JsonNode.class);
             String presentation = vpToken.get("pid").get(0).asText();
-            List<String> disclosures = List.of(presentation.split("~")).stream()
-                    .skip(1)
-                    .limit(presentation.split("~").length - 2L)
-                    .map(part -> new String(Base64.getUrlDecoder().decode(part), StandardCharsets.UTF_8))
-                    .toList();
-            assertThat(disclosures).anyMatch(d -> d.contains("Edited-Neumann"));
+            assertThat(disclosures(presentation))
+                    .anyMatch(disclosure -> "Edited-Neumann".equals(disclosure.getClaimValue()));
 
-            SignedJWT issuerJwt = SignedJWT.parse(presentation.split("~")[0]);
+            SignedJWT issuerJwt = issuerJwt(presentation);
             @SuppressWarnings("unchecked")
             Map<String, Object> status =
                     (Map<String, Object>) issuerJwt.getJWTClaimsSet().getClaim("status");
@@ -150,10 +144,11 @@ class EditDuringFlowTest {
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
                     + "&request_uri="
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
-            String flowState = extractHiddenField(
-                    client().get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
+            String flowState =
+                    hiddenField(client(port).get().uri(authorizeUrl).retrieve().body(String.class), "flowState");
 
-            ResponseEntity<String> save = client().post()
+            ResponseEntity<String> save = client(port)
+                    .post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("id=pid-no-family-name&name=Broken&vct=urn:eudi:pid:1&validityDays=30"
@@ -165,13 +160,5 @@ class EditDuringFlowTest {
             assertThat(save.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(save.getBody()).contains("does not match the verifier");
         }
-    }
-
-    private static String extractHiddenField(String html, String name) {
-        String marker = "name=\"" + name + "\" value=\"";
-        int start = html.indexOf(marker);
-        assertThat(start).as("hidden field '%s' present", name).isNotNegative();
-        start += marker.length();
-        return html.substring(start, html.indexOf('"', start));
     }
 }

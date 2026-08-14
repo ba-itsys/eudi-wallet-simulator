@@ -1,23 +1,20 @@
 #!/bin/sh
-# Prepares the Keycloak example: builds the keycloak-extension-oid4vp snapshot jar from the
-# sibling checkout, generates a verifier signing certificate (SAN DNS localhost), and renders
-# the realm import file. Afterwards: docker compose up, and start the simulator on port 8081.
+# Prepares the Keycloak example: downloads the keycloak-extension-oid4vp jar, generates a
+# verifier signing certificate (SAN DNS localhost), and renders the realm import file.
+# Afterwards: docker compose up, and start the simulator on port 8081.
 set -eu
 
 EXAMPLE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+EXTENSION_VERSION="${EXTENSION_VERSION:-0.8.0}"
 EXTENSION_JAR="${EXAMPLE_DIR}/keycloak-extension-oid4vp.jar"
-EXTENSION_DIR="${EXTENSION_DIR:-${EXAMPLE_DIR}/../../../keycloak-extension-oid4vp}"
+EXTENSION_URL="https://repo1.maven.org/maven2/de/arbeitsagentur/opdt/keycloak-extension-oid4vp/${EXTENSION_VERSION}/keycloak-extension-oid4vp-${EXTENSION_VERSION}.jar"
 
-# the realm configures credential_sets verbatim and trusted authorities, which needs the
-# snapshot; a released jar without those options would reject the realm
-if [ -d "$EXTENSION_DIR" ]; then
-  echo "Building the keycloak-extension-oid4vp snapshot from ${EXTENSION_DIR}..."
-  mvn -f "${EXTENSION_DIR}/pom.xml" -pl core -am package -DskipTests -q
-  cp "${EXTENSION_DIR}/core/target/keycloak-extension-oid4vp.jar" "$EXTENSION_JAR"
-elif [ ! -f "$EXTENSION_JAR" ]; then
-  echo "keycloak-extension-oid4vp checkout not found at ${EXTENSION_DIR}" >&2
-  echo "Clone it next to this repository or set EXTENSION_DIR." >&2
-  exit 1
+if [ ! -f "$EXTENSION_JAR" ]; then
+  echo "Downloading keycloak-extension-oid4vp ${EXTENSION_VERSION}..."
+  curl -sfL "$EXTENSION_URL" -o "$EXTENSION_JAR" || {
+    echo "Could not download ${EXTENSION_URL}" >&2
+    exit 1
+  }
 fi
 
 SIMULATOR_URL="${SIMULATOR_URL:-http://localhost:8081}"

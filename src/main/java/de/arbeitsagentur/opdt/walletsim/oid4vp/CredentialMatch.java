@@ -14,8 +14,4 @@ public record CredentialMatch(
                 .orElse(claimSetOptions.getFirst())
                 .claimPaths();
     }
-
-    public List<String> claimsToDiscloseDisplay() {
-        return ClaimSetOption.displayPaths(claimSetOptions.getFirst().claimPaths());
-    }
 }

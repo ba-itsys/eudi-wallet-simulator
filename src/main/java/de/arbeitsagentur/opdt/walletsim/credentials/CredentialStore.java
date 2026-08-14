@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntFunction;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,16 +20,19 @@ public class CredentialStore {
     private final Map<Integer, Integer> statusByIndex = new LinkedHashMap<>();
     private final AtomicInteger statusIndexCounter = new AtomicInteger();
 
-    public int reserveStatusIndex() {
-        return statusIndexCounter.getAndIncrement();
-    }
-
-    public synchronized void add(StoredCredential credential) {
+    /**
+     * Adds a credential under the next free status list index. The issuer needs that index before
+     * it can sign, so it is handed to the given factory inside the lock.
+     */
+    public synchronized StoredCredential add(IntFunction<StoredCredential> credentialForStatusIndex) {
+        int statusIndex = statusIndexCounter.getAndIncrement();
+        StoredCredential credential = credentialForStatusIndex.apply(statusIndex);
         if (credentials.containsKey(credential.id())) {
             throw new IllegalArgumentException("Duplicate credential id: " + credential.id());
         }
         credentials.put(credential.id(), credential);
-        statusByIndex.put(credential.statusIndex(), 0);
+        statusByIndex.put(statusIndex, 0);
+        return credential;
     }
 
     public synchronized List<StoredCredential> findAll() {

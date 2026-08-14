@@ -1,9 +1,10 @@
 package de.arbeitsagentur.opdt.walletsim.web;
 
-import de.arbeitsagentur.opdt.walletsim.conformance.ConformanceSettings;
+import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.conformance.Finding;
 import de.arbeitsagentur.opdt.walletsim.conformance.RequestObjectValidator;
 import de.arbeitsagentur.opdt.walletsim.conformance.ValidationMode;
+import de.arbeitsagentur.opdt.walletsim.credentials.CredentialDefinition;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.SinglePresentationCredentials;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
@@ -11,7 +12,6 @@ import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.CredentialMatch;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
-import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlQuery;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.InvalidRequestException;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.PresentationPlan;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.QuerySlot;
@@ -20,6 +20,7 @@ import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SdJwtPresentationBuilder;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SetChoice;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SubmissionResult;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -52,7 +54,7 @@ public class AuthorizeController {
 
     private final RequestObjectClient requestObjectClient;
     private final RequestObjectValidator validator;
-    private final ConformanceSettings conformanceSettings;
+    private final AppProperties properties;
     private final DcqlMatcher dcqlMatcher;
     private final SdJwtPresentationBuilder presentationBuilder;
     private final ResponseSubmitter responseSubmitter;
@@ -64,7 +66,7 @@ public class AuthorizeController {
     public AuthorizeController(
             RequestObjectClient requestObjectClient,
             RequestObjectValidator validator,
-            ConformanceSettings conformanceSettings,
+            AppProperties properties,
             DcqlMatcher dcqlMatcher,
             SdJwtPresentationBuilder presentationBuilder,
             ResponseSubmitter responseSubmitter,
@@ -74,7 +76,7 @@ public class AuthorizeController {
             CredentialStore credentialStore) {
         this.requestObjectClient = requestObjectClient;
         this.validator = validator;
-        this.conformanceSettings = conformanceSettings;
+        this.properties = properties;
         this.dcqlMatcher = dcqlMatcher;
         this.presentationBuilder = presentationBuilder;
         this.responseSubmitter = responseSubmitter;
@@ -93,22 +95,43 @@ public class AuthorizeController {
 
         List<Finding> findings = validator.validate(clientId, request);
         findings.forEach(finding -> LOG.warn("Request does not conform to OID4VP: {}", finding.message()));
-        if (conformanceSettings.mode() == ValidationMode.STRICT && !findings.isEmpty()) {
+        if (properties.mode() == ValidationMode.STRICT && !findings.isEmpty()) {
             return refuseNonConformantRequest(request, findings, model);
+        }
+        if (requestsOnlyUnsupportedFormats(request)) {
+            return refuseUnsupportedFormats(request, model);
         }
 
         model.addAttribute("findings", findings);
         return renderPicker(request, model);
     }
 
+    private boolean requestsOnlyUnsupportedFormats(AuthorizationRequest request) {
+        try {
+            return dcqlMatcher.parse(request.dcqlQuery()).requestsOnlyUnsupportedFormats();
+        } catch (InvalidRequestException e) {
+            return false;
+        }
+    }
+
+    // OID4VP 1.0 §8.5: a wallet that cannot present any of the requested credential formats
+    // answers the verifier with vp_formats_not_supported
+    private String refuseUnsupportedFormats(AuthorizationRequest request, Model model) {
+        String description = "This wallet only presents credentials in format " + CredentialDefinition.FORMAT_SD_JWT_VC;
+        boolean errorSent = sendError(request, "vp_formats_not_supported", description);
+        LOG.error("Refused request from {}: {}", request.clientId(), description);
+        model.addAttribute("errorTitle", "The wallet refused the request");
+        model.addAttribute(
+                "errorMessage",
+                description + "."
+                        + (errorSent ? " A vp_formats_not_supported error response was sent to the verifier." : ""));
+        return "error_view";
+    }
+
     @PostMapping("/authorize/submit")
     public String submit(@ModelAttribute SelectionForm form, Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
-        List<StoredCredential> extra = singlePresentationCredentials
-                .deserialize(form.getSinglePresentationCredential())
-                .map(List::of)
-                .orElseGet(List::of);
-        PresentationPlan plan = plan(request, extra);
+        PresentationPlan plan = plan(request, singlePresentationCredential(form.getSinglePresentationCredential()));
         Set<String> requestedQueryIds = requestedQueryIds(plan, form);
         Map<String, String> presentations = new LinkedHashMap<>();
         Map<String, String> selectedCredentials = new LinkedHashMap<>();
@@ -140,16 +163,19 @@ public class AuthorizeController {
         return complete(result, model);
     }
 
-    private StoredCredential store(String credentialId) {
+    // the credential a flow carries in its hidden field, as the extra candidate for the plan
+    private List<StoredCredential> singlePresentationCredential(String encoded) {
+        return singlePresentationCredentials.deserialize(encoded).map(List::of).orElseGet(List::of);
+    }
+
+    private StoredCredential walletCredential(String credentialId) {
         return credentialStore
                 .findById(credentialId)
                 .orElseThrow(() -> new InvalidRequestException("Unknown credential id: " + credentialId));
     }
 
     private static Optional<String> firstNonBlank(String... values) {
-        return java.util.Arrays.stream(values)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
+        return Arrays.stream(values).filter(StringUtils::hasText).findFirst();
     }
 
     private static int chosenClaimSetIndex(SelectionForm form, String queryId) {
@@ -193,15 +219,11 @@ public class AuthorizeController {
         String templateId = firstNonBlank(selectedForQuery, credentialId)
                 .or(form::firstSelectedCredentialId)
                 .orElseThrow(() -> new InvalidRequestException("No credential selected for editing"));
-        List<StoredCredential> extra = singlePresentationCredentials
-                .deserialize(form.getSinglePresentationCredential())
-                .map(List::of)
-                .orElseGet(List::of);
-        CredentialEditForm editForm = extra.stream()
+        CredentialEditForm editForm = singlePresentationCredential(form.getSinglePresentationCredential()).stream()
                 .filter(credential -> credential.id().equals(templateId))
                 .findFirst()
                 .map(editForms::cloneForSinglePresentation)
-                .orElseGet(() -> editForms.cloneForSinglePresentation(store(templateId)));
+                .orElseGet(() -> editForms.cloneForSinglePresentation(walletCredential(templateId)));
         editForm.setFlowState(form.getFlowState());
         editForm.setSinglePresentationCredential(form.getSinglePresentationCredential());
         return editView(editForm, model);
@@ -235,7 +257,6 @@ public class AuthorizeController {
             return editView(form, model);
         }
         LOG.info("Issued credential {} for this presentation only", credential.id());
-        model.addAttribute("findings", List.of());
         model.addAttribute("preselectedCredentialId", credential.id());
         model.addAttribute("singlePresentationCredential", singlePresentationCredentials.serialize(credential));
         return renderPicker(request, plan, model);
@@ -247,13 +268,8 @@ public class AuthorizeController {
             @RequestParam(name = "singlePresentationCredential", required = false) String encodedCredential,
             Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(flowState);
-        List<StoredCredential> extra = singlePresentationCredentials
-                .deserialize(encodedCredential)
-                .map(List::of)
-                .orElseGet(List::of);
-        model.addAttribute("findings", List.of());
         model.addAttribute("singlePresentationCredential", encodedCredential);
-        return renderPicker(request, plan(request, extra), model);
+        return renderPicker(request, plan(request, singlePresentationCredential(encodedCredential)), model);
     }
 
     @PostMapping("/authorize/cancel")
@@ -271,22 +287,29 @@ public class AuthorizeController {
                 findings.stream().anyMatch(finding -> finding.message().contains("transaction_data"))
                         ? "invalid_transaction_data"
                         : "invalid_request";
-        boolean errorSent = false;
-        if (isUsableResponseUri(request.responseUri())) {
-            try {
-                responseSubmitter.submitError(request, errorCode, description);
-                errorSent = true;
-            } catch (InvalidRequestException e) {
-                LOG.error("Could not deliver error response: {}", e.getMessage());
-            }
-        }
+        boolean errorSent = sendError(request, errorCode, description);
         LOG.error("Refused non-conformant request in strict mode from {}", request.clientId());
+        model.addAttribute("errorTitle", "The wallet refused the request");
         model.addAttribute(
                 "errorMessage",
                 "The verifier request violates OID4VP conformance (strict mode)."
                         + (errorSent ? " An " + errorCode + " error response was sent to the verifier." : ""));
         model.addAttribute("findings", findings);
         return "error_view";
+    }
+
+    // an error response needs a response_uri to go to, which a broken request may not have
+    private boolean sendError(AuthorizationRequest request, String errorCode, String description) {
+        if (!isUsableResponseUri(request.responseUri())) {
+            return false;
+        }
+        try {
+            responseSubmitter.submitError(request, errorCode, description);
+            return true;
+        } catch (InvalidRequestException e) {
+            LOG.error("Could not deliver error response: {}", e.getMessage());
+            return false;
+        }
     }
 
     private static boolean isUsableResponseUri(String responseUri) {
@@ -312,7 +335,7 @@ public class AuthorizeController {
 
     private PresentationPlan plan(AuthorizationRequest request, List<StoredCredential> extraCredentials) {
         try {
-            return dcqlMatcher.plan(DcqlQuery.from(request.dcqlQuery()), extraCredentials);
+            return dcqlMatcher.plan(dcqlMatcher.parse(request.dcqlQuery()), extraCredentials);
         } catch (InvalidRequestException e) {
             return new PresentationPlan(List.of(), List.of(), List.of(), false);
         }
@@ -321,7 +344,7 @@ public class AuthorizeController {
     private String editView(CredentialEditForm form, Model model) {
         model.addAttribute("form", form);
         model.addAttribute("singlePresentationCredential", form.getSinglePresentationCredential());
-        model.addAttribute("formAction", "/authorize/edit/save");
+        model.addAttribute("formAction", properties.basepath() + "/authorize/edit/save");
         return "credential_edit";
     }
 
@@ -329,14 +352,15 @@ public class AuthorizeController {
         if (result.redirectUri().isPresent()) {
             return "redirect:" + result.redirectUri().get();
         }
-        model.addAttribute("crossDevice", true);
         return "presentation_complete";
     }
 
     @ExceptionHandler(InvalidRequestException.class)
     public String invalidRequest(InvalidRequestException exception, Model model) {
-        LOG.error("Presentation flow failed: {}", exception.getMessage());
+        LOG.error("Presentation flow failed: {} {}", exception.getMessage(), exception.detail());
+        model.addAttribute("errorTitle", "The presentation did not complete");
         model.addAttribute("errorMessage", exception.getMessage());
+        model.addAttribute("errorDetail", exception.detail());
         return "error_view";
     }
 }

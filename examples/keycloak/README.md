@@ -1,8 +1,8 @@
 # Keycloak example
 
 Runs a real [keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp)
-verifier against this wallet simulator. The setup builds the extension from the sibling checkout,
-override its location with EXTENSION_DIR when running setup.sh.
+verifier against this wallet simulator. The setup downloads release 0.8.0 of the extension from
+Maven Central, override it with EXTENSION_VERSION when running setup.sh.
 
 ## Layout
 
@@ -20,7 +20,7 @@ Keycloak can fetch the trust list and the status list from inside the container.
 # 1. Start the simulator (from the repository root)
 SERVER_PORT=8081 APP_BASEURL=http://host.docker.internal:8081 mvn spring-boot:run
 
-# 2. Build the extension jar, create the verifier certificate,
+# 2. Download the extension jar, create the verifier certificate,
 #    fetch a registration certificate from the simulator, render the realm
 ./setup.sh
 
@@ -50,9 +50,12 @@ The realm configures this verbatim in DCQL syntax on the `oid4vp` identity provi
 "trustedAuthoritiesMode": "etsi_tl"
 ```
 
-The mappers name their credential with `credential.id`, which is what the options refer to. This
-needs the extension snapshot, so `setup.sh` builds the sibling checkout instead of downloading a
-release.
+The mappers name their credential with `credential.id`, which is what the options refer to. Both
+need extension 0.8.0 or newer.
+
+Release 0.8.0 matches credential types exactly, so it refuses a credential whose vct only inherits
+from the requested one. Presenting Thomas or Erika for a query asking `urn:eudi:pid:1` therefore
+fails at the verifier, and the simulator shows the verifier's reason on its error page.
 
 The admin console is at <http://localhost:8080/admin> with user `admin` and password `admin`.
 

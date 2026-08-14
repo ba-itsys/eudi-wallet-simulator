@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -23,10 +24,11 @@ import tools.jackson.databind.ObjectMapper;
 public class CredentialEditForms {
 
     private final CredentialStore store;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public CredentialEditForms(CredentialStore store) {
+    public CredentialEditForms(CredentialStore store, ObjectMapper objectMapper) {
         this.store = store;
+        this.objectMapper = objectMapper;
     }
 
     public CredentialEditForm cloneForm(String templateCredentialId) {
@@ -74,7 +76,7 @@ public class CredentialEditForms {
 
     // Moves the add-claim row into a regular claim field and clears the row.
     public void addNewClaim(CredentialEditForm form) {
-        if (form.getNewClaimName() != null && !form.getNewClaimName().isBlank()) {
+        if (StringUtils.hasText(form.getNewClaimName())) {
             String path = form.getNewClaimName().trim();
             form.getClaimValues()
                     .put(
@@ -95,16 +97,16 @@ public class CredentialEditForms {
 
     // a credential for a single presentation may reuse the id of the wallet credential it replaces
     public String validationError(CredentialEditForm form, boolean requireUnusedId) {
-        if (form.getId() == null || form.getId().isBlank()) {
+        if (!StringUtils.hasText(form.getId())) {
             return "Credential id is required.";
         }
         if (requireUnusedId && store.findById(form.getId().trim()).isPresent()) {
             return "A credential with id '" + form.getId().trim() + "' already exists.";
         }
-        if (form.getName() == null || form.getName().isBlank()) {
+        if (!StringUtils.hasText(form.getName())) {
             return "Name is required.";
         }
-        if (form.getVct() == null || form.getVct().isBlank()) {
+        if (!StringUtils.hasText(form.getVct())) {
             return "vct is required.";
         }
         if (form.getValidityDays() <= 0) {
@@ -128,7 +130,7 @@ public class CredentialEditForms {
 
     private static List<String> alwaysDisclosedClaims(CredentialEditForm form) {
         return form.getClaimValues().entrySet().stream()
-                .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
+                .filter(entry -> StringUtils.hasText(entry.getValue()))
                 .map(Map.Entry::getKey)
                 .filter(path ->
                         Boolean.TRUE.equals(form.getClaimAlwaysDisclosed().get(path)))
@@ -138,14 +140,11 @@ public class CredentialEditForms {
     private Map<String, Object> parseClaims(CredentialEditForm form) {
         Map<String, Object> claims = new LinkedHashMap<>();
         form.getClaimValues().forEach((claimPath, value) -> {
-            if (value != null && !value.isBlank()) {
+            if (StringUtils.hasText(value)) {
                 putNested(claims, claimPath, parseClaimValue(value.trim()));
             }
         });
-        if (form.getNewClaimName() != null
-                && !form.getNewClaimName().isBlank()
-                && form.getNewClaimValue() != null
-                && !form.getNewClaimValue().isBlank()) {
+        if (StringUtils.hasText(form.getNewClaimName()) && StringUtils.hasText(form.getNewClaimValue())) {
             putNested(
                     claims,
                     form.getNewClaimName().trim(),

@@ -1,6 +1,7 @@
 package de.arbeitsagentur.opdt.walletsim.conformance;
 
 import com.nimbusds.jose.crypto.ECDSAVerifier;
+import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
@@ -13,6 +14,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.text.ParseException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -70,13 +72,13 @@ public class RequestObjectValidator {
         try {
             Map<String, Object> claims = jwt.getJWTClaimsSet().getClaims();
             List<String> audience = jwt.getJWTClaimsSet().getAudience();
-            if (!audience.isEmpty() && !audience.contains("https://self-issued.me/v2")) {
+            if (!audience.contains("https://self-issued.me/v2")) {
                 findings.add(new Finding(
                         "Request object aud must be https://self-issued.me/v2 for static discovery (OID4VP 1.0 §5.8), got: "
-                                + audience));
+                                + (audience.isEmpty() ? "no aud claim" : audience)));
             }
             if (jwt.getJWTClaimsSet().getExpirationTime() != null
-                    && jwt.getJWTClaimsSet().getExpirationTime().toInstant().isBefore(java.time.Instant.now())) {
+                    && jwt.getJWTClaimsSet().getExpirationTime().toInstant().isBefore(Instant.now())) {
                 findings.add(new Finding("Request object is expired (exp in the past)"));
             }
             if (claims.get("redirect_uri") != null) {
@@ -94,14 +96,13 @@ public class RequestObjectValidator {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static void validateClientMetadata(AuthorizationRequest request, List<Finding> findings) {
         Map<String, Object> clientMetadata = request.clientMetadata();
         if (clientMetadata == null || !(clientMetadata.get("vp_formats_supported") instanceof Map<?, ?> formats)) {
             findings.add(new Finding("client_metadata must contain vp_formats_supported (OID4VP 1.0 §5.1)"));
             return;
         }
-        if (!((Map<String, Object>) formats).containsKey("dc+sd-jwt")) {
+        if (!formats.containsKey("dc+sd-jwt")) {
             findings.add(
                     new Finding(
                             "vp_formats_supported does not include dc+sd-jwt, the only format this wallet presents (OID4VP 1.0 §8.5 vp_formats_not_supported)"));
@@ -172,22 +173,29 @@ public class RequestObjectValidator {
                     "response_uri must be an absolute http(s) URL (OID4VP 1.0 §8.2), got: " + request.responseUri()));
         }
         List<Map<String, Object>> keys = ClientMetadataKeys.encryptionKeys(request.clientMetadata());
-        {
-            if (keys.isEmpty()) {
-                findings.add(
-                        new Finding(
-                                "response_mode direct_post.jwt requires a usable EC encryption key in client_metadata.jwks (OID4VP 1.0 §8.3)"));
-            } else {
-                Map<String, Object> key = keys.getFirst();
-                if (key.get("kid") == null) {
-                    findings.add(
-                            new Finding("Encryption keys in client_metadata.jwks must have a kid (OID4VP 1.0 §5.1)"));
-                }
-                if (key.get("alg") == null) {
-                    findings.add(
-                            new Finding("Encryption keys in client_metadata.jwks must have an alg (OID4VP 1.0 §8.3)"));
-                }
-            }
+        if (keys.isEmpty()) {
+            findings.add(
+                    new Finding(
+                            "response_mode direct_post.jwt requires a usable EC encryption key in client_metadata.jwks (OID4VP 1.0 §8.3)"));
+        }
+        if (keys.stream().anyMatch(key -> key.get("kid") == null)) {
+            findings.add(new Finding("Every key in client_metadata.jwks must have a kid (OID4VP 1.0 §5.1)"));
+        }
+        if (keys.stream().anyMatch(key -> key.get("alg") == null)) {
+            findings.add(new Finding("Encryption keys in client_metadata.jwks must have an alg (OID4VP 1.0 §8.3)"));
+        }
+        validateEncryptionMethods(request.clientMetadata(), findings);
+    }
+
+    // OID4VP 1.0 §5.1: encrypted_response_enc_values_supported is mandatory for response modes
+    // that require encryption
+    private static void validateEncryptionMethods(Map<String, Object> clientMetadata, List<Finding> findings) {
+        Object supported =
+                clientMetadata == null ? null : clientMetadata.get("encrypted_response_enc_values_supported");
+        if (!(supported instanceof List<?> values) || values.isEmpty()) {
+            findings.add(
+                    new Finding(
+                            "client_metadata must contain a non-empty encrypted_response_enc_values_supported for response_mode direct_post.jwt (OID4VP 1.0 §5.1)"));
         }
     }
 
@@ -240,7 +248,7 @@ public class RequestObjectValidator {
     }
 
     private static X509Certificate leafCertificate(SignedJWT jwt, List<Finding> findings) {
-        List<com.nimbusds.jose.util.Base64> x5c = jwt.getHeader().getX509CertChain();
+        List<Base64> x5c = jwt.getHeader().getX509CertChain();
         if (x5c == null || x5c.isEmpty()) {
             findings.add(
                     new Finding(

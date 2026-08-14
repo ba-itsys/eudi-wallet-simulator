@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Evaluates a DCQL query against the wallet content and produces a presentation plan: one slot
@@ -25,14 +26,26 @@ public class DcqlMatcher {
 
     private final CredentialStore store;
     private final TrustedAuthorityMatcher trustedAuthorityMatcher;
+    private final ObjectMapper objectMapper;
 
-    public DcqlMatcher(CredentialStore store, TrustedAuthorityMatcher trustedAuthorityMatcher) {
+    public DcqlMatcher(
+            CredentialStore store, TrustedAuthorityMatcher trustedAuthorityMatcher, ObjectMapper objectMapper) {
         this.store = store;
         this.trustedAuthorityMatcher = trustedAuthorityMatcher;
+        this.objectMapper = objectMapper;
     }
 
-    public PresentationPlan plan(DcqlQuery query) {
-        return plan(query, List.of());
+    // Reads the dcql_query claim into the typed model. Structural violations are reported by the
+    // conformance validator, so a query that cannot be read at all is an invalid request here.
+    public DcqlQuery parse(Map<String, Object> dcqlQuery) {
+        if (dcqlQuery == null) {
+            throw new InvalidRequestException("dcql_query with a credentials array is required");
+        }
+        try {
+            return objectMapper.convertValue(dcqlQuery, DcqlQuery.class);
+        } catch (RuntimeException e) {
+            throw new InvalidRequestException("dcql_query cannot be read: " + e.getMessage(), e);
+        }
     }
 
     // extraCredentials are candidates that are not wallet content, for example a credential issued
@@ -58,9 +71,6 @@ public class DcqlMatcher {
         List<SetChoice> setChoices = satisfiableSetChoices(query, matchesByQuery);
         Set<String> displayedQueryIds = new LinkedHashSet<>(alwaysRequested);
         setChoices.forEach(choice -> choice.options().forEach(option -> displayedQueryIds.addAll(option.queryIds())));
-        if (displayedQueryIds.isEmpty() && query.credentialSets().isEmpty()) {
-            query.credentials().forEach(credentialQuery -> displayedQueryIds.add(credentialQuery.id()));
-        }
         List<QuerySlot> slots = new ArrayList<>();
         boolean satisfiable = !displayedQueryIds.isEmpty();
         for (CredentialQuery credentialQuery : query.credentials()) {
@@ -124,7 +134,7 @@ public class DcqlMatcher {
                                     !matchesByQuery.getOrDefault(id, List.of()).isEmpty()))
                     .toList();
             if (!satisfiable.isEmpty()) {
-                choices.add(new SetChoice(i, set.required(), setOptions(query, satisfiable)));
+                choices.add(new SetChoice(i, set.isRequired(), setOptions(query, satisfiable)));
             }
         }
         return choices;
@@ -133,7 +143,7 @@ public class DcqlMatcher {
     private static boolean hasUnsatisfiableRequiredSet(
             DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
         return query.credentialSets().stream()
-                .filter(CredentialSetQuery::required)
+                .filter(CredentialSetQuery::isRequired)
                 .anyMatch(set -> set.options().stream().noneMatch(option -> option.stream()
                         .allMatch(id ->
                                 !matchesByQuery.getOrDefault(id, List.of()).isEmpty())));

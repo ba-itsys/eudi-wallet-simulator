@@ -5,9 +5,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -20,10 +22,11 @@ import tools.jackson.databind.ObjectMapper;
 public class ResponseSubmitter {
 
     private final RestClient restClient = RestClient.create();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final ResponseEncryptor responseEncryptor;
 
-    public ResponseSubmitter(ResponseEncryptor responseEncryptor) {
+    public ResponseSubmitter(ObjectMapper objectMapper, ResponseEncryptor responseEncryptor) {
+        this.objectMapper = objectMapper;
         this.responseEncryptor = responseEncryptor;
     }
 
@@ -64,27 +67,62 @@ public class ResponseSubmitter {
     }
 
     private SubmissionResult submit(String responseUri, MultiValueMap<String, String> form) {
+        ResponseEntity<String> response;
         try {
-            String body = restClient
+            response = restClient
                     .post()
                     .uri(responseUri)
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body(form)
-                    .retrieve()
-                    .body(String.class);
-            return new SubmissionResult(extractRedirectUri(body));
+                    // the verifier's own answer is the interesting part of a failure, so it is read
+                    // instead of being turned into an exception without a body
+                    .exchange((request, clientResponse) -> ResponseEntity.status(clientResponse.getStatusCode())
+                            .body(clientResponse.bodyTo(String.class)));
         } catch (Exception e) {
-            throw new InvalidRequestException("Failed to post authorization response to " + responseUri, e);
+            throw new InvalidRequestException("Could not reach the verifier at " + responseUri, e);
+        }
+        if (response.getStatusCode().isError()) {
+            throw new InvalidRequestException(
+                    "The verifier rejected the presentation with HTTP "
+                            + response.getStatusCode().value() + ".",
+                    rejectionReason(response.getBody()));
+        }
+        return new SubmissionResult(redirectUri(response.getBody()));
+    }
+
+    /**
+     * What the verifier said about the rejection. OAuth style errors carry error and
+     * error_description, anything else is shown as it arrived.
+     */
+    private String rejectionReason(String body) {
+        if (!StringUtils.hasText(body)) {
+            return null;
+        }
+        try {
+            JsonNode json = objectMapper.readValue(body, JsonNode.class);
+            String description = json.path("error_description").asString(null);
+            String error = json.path("error").asString(null);
+            if (description != null) {
+                return error == null ? description : error + ": " + description;
+            }
+            return error != null ? error : body;
+        } catch (RuntimeException e) {
+            return body;
         }
     }
 
-    private Optional<String> extractRedirectUri(String body) {
-        if (body == null || body.isBlank()) {
+    // a verifier answers with a redirect_uri for same device flows and with nothing for cross device ones
+    private Optional<String> redirectUri(String body) {
+        if (!StringUtils.hasText(body)) {
             return Optional.empty();
         }
-        JsonNode json = objectMapper.readValue(body, JsonNode.class);
-        return json.hasNonNull("redirect_uri")
-                ? Optional.of(json.get("redirect_uri").asText())
-                : Optional.empty();
+        try {
+            JsonNode json = objectMapper.readValue(body, JsonNode.class);
+            return json.hasNonNull("redirect_uri")
+                    ? Optional.of(json.get("redirect_uri").asText())
+                    : Optional.empty();
+        } catch (RuntimeException e) {
+            throw new InvalidRequestException("The verifier answered with a body that is not JSON: " + body, e);
+        }
     }
 }

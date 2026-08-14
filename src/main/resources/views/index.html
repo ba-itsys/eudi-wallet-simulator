@@ -1,16 +1,14 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head data-th-insert="~{fragments/snippets :: head}">
-    <title>EUDI Wallet Simulator</title>
-</head>
+<head data-th-replace="~{fragments/snippets :: head}"></head>
 <body>
 <nav data-th-replace="~{fragments/snippets :: navbar}"></nav>
 <div class="container">
     <p class="text-muted">
         Web-based wallet simulator for testing OID4VP verifiers. A verifier sends the browser here via its
         wallet link (<code>/authorize?client_id=&hellip;&amp;request_uri=&hellip;</code>). Trust lists are served at
-        <code>/trust-lists/credentials</code> and <code>/trust-lists/wallet-providers</code>, the status list at
-        <code>/status-list</code>, revocation via <code>POST /api/credentials/{id}/status</code>. Verifiers need a
+        <code>/api/trust-lists/credentials</code> and <code>/api/trust-lists/wallet-providers</code>, the status list at
+        <code>/api/status-list</code>, revocation via <code>POST /api/credentials/{id}/status</code>. Verifiers need a
         registration certificate from <code>/api/registration-certificates?client_id=&hellip;</code> for their
         <code>verifier_info</code>.
     </p>
@@ -31,7 +29,7 @@
                                   data-th-classappend="${card.status == 0} ? 'text-bg-success' : 'text-bg-danger'"
                                   data-th-text="${card.status == 0} ? 'Active' : 'Revoked'">Active</span><br/>
                             <span class="text-muted" data-th-text="${card.credential.vct}">vct</span><br/>
-                            <small data-th-text="${card.credential.claims['given_name']} + ' ' + ${card.credential.claims['family_name']}">person</small><br/>
+                            <small data-th-if="${!card.person.isEmpty()}" data-th-text="${card.person}">person</small><br/>
                             <small class="text-muted">ID:</small> <code data-th-text="${card.credential.id}">id</code>
                         </label>
                         <button type="submit" class="btn btn-sm btn-outline-danger mt-2"

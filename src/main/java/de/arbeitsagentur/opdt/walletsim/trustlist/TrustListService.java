@@ -16,34 +16,32 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * Builds ETSI TS 119 602 LoTE trust list JWTs in the JSON shape ETSI trust list consumers
- * parse. Lists are signed with the CA key; the
- * services carry both the CA (PKIX anchor) and the signing leaf (direct pin) so either trust
- * resolution mode works.
+ * Builds ETSI TS 119 602 LoTE trust list JWTs. Lists are signed with the CA key; the services
+ * carry both the CA (PKIX anchor) and the signing leaf (direct pin) so either trust resolution
+ * mode works.
  */
 @Service
 public class TrustListService {
 
+    public static final String LOTE_CLAIM = "LoTE";
+
     private static final String SCHEME_OPERATOR = "EUDI Wallet Simulator";
 
     private final SimulatorPki pki;
+    private final ObjectMapper objectMapper;
 
-    public TrustListService(SimulatorPki pki) {
+    public TrustListService(SimulatorPki pki, ObjectMapper objectMapper) {
         this.pki = pki;
+        this.objectMapper = objectMapper;
     }
 
     public String trustListJwt(TrustListProfile profile) {
         try {
-            List<X509Certificate> serviceCertificates = serviceCertificates(profile);
-            Instant now = Instant.now();
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                    .claim(
-                            "LoTE",
-                            Map.of(
-                                    "ListAndSchemeInformation", listAndSchemeInformation(profile, now),
-                                    "TrustedEntitiesList", List.of(trustedEntity(profile, serviceCertificates))))
+                    .claim(LOTE_CLAIM, objectMapper.convertValue(trustList(profile), Map.class))
                     .build();
             SignedJWT jwt = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.ES256)
@@ -57,6 +55,29 @@ public class TrustListService {
         }
     }
 
+    private TrustList trustList(TrustListProfile profile) {
+        Instant now = Instant.now();
+        ServiceDigitalIdentity identity = new ServiceDigitalIdentity(serviceCertificates(profile).stream()
+                .map(TrustListService::certificateValue)
+                .toList());
+        TrustedEntity entity = new TrustedEntity(
+                new TrustedEntityInformation(SCHEME_OPERATOR),
+                List.of(
+                        service(profile.issuanceServiceType(), "Issuance", identity),
+                        service(profile.revocationServiceType(), "Revocation", identity)));
+        return new TrustList(
+                new ListAndSchemeInformation(
+                        1,
+                        1,
+                        profile.loteType(),
+                        SCHEME_OPERATOR,
+                        now.toString(),
+                        now.plus(24, ChronoUnit.HOURS).toString(),
+                        profile.statusDeterminationApproach(),
+                        List.of(profile.schemeTypeCommunityRules())),
+                List.of(entity));
+    }
+
     private List<X509Certificate> serviceCertificates(TrustListProfile profile) {
         return switch (profile) {
             case CREDENTIALS -> List.of(pki.caCertificate(), pki.issuerCertificate());
@@ -64,50 +85,15 @@ public class TrustListService {
         };
     }
 
-    private static Map<String, Object> listAndSchemeInformation(TrustListProfile profile, Instant now) {
-        return Map.of(
-                "LoTEVersionIdentifier", 1,
-                "LoTESequenceNumber", 1,
-                "LoTEType", profile.loteType(),
-                "SchemeOperatorName", SCHEME_OPERATOR,
-                "ListIssueDateTime", now.toString(),
-                "NextUpdate", now.plus(24, ChronoUnit.HOURS).toString(),
-                "StatusDeterminationApproach", profile.statusDeterminationApproach(),
-                "SchemeTypeCommunityRules", List.of(profile.schemeTypeCommunityRules()));
+    private static TrustedEntityService service(
+            String serviceTypeIdentifier, String serviceName, ServiceDigitalIdentity identity) {
+        return new TrustedEntityService(
+                new ServiceInformation(serviceTypeIdentifier, SCHEME_OPERATOR + " " + serviceName, identity));
     }
 
-    private static Map<String, Object> trustedEntity(TrustListProfile profile, List<X509Certificate> certificates) {
-        return Map.of(
-                "TrustedEntityInformation",
-                Map.of("TrustedEntityName", SCHEME_OPERATOR),
-                "TrustedEntityServices",
-                List.of(
-                        service(profile.issuanceServiceType(), "Issuance", certificates),
-                        service(profile.revocationServiceType(), "Revocation", certificates)));
-    }
-
-    private static Map<String, Object> service(
-            String serviceTypeIdentifier, String serviceName, List<X509Certificate> certificates) {
-        return Map.of(
-                "ServiceInformation",
-                Map.of(
-                        "ServiceTypeIdentifier",
-                        serviceTypeIdentifier,
-                        "ServiceName",
-                        SCHEME_OPERATOR + " " + serviceName,
-                        "ServiceDigitalIdentity",
-                        Map.of("X509Certificates", certificateValues(certificates))));
-    }
-
-    private static List<Map<String, String>> certificateValues(List<X509Certificate> certificates) {
-        return certificates.stream()
-                .map(certificate -> Map.of("val", base64Der(certificate)))
-                .toList();
-    }
-
-    private static String base64Der(X509Certificate certificate) {
+    private static CertificateValue certificateValue(X509Certificate certificate) {
         try {
-            return Base64.getEncoder().encodeToString(certificate.getEncoded());
+            return new CertificateValue(Base64.getEncoder().encodeToString(certificate.getEncoded()));
         } catch (CertificateEncodingException e) {
             throw new IllegalStateException(e);
         }

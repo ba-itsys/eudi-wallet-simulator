@@ -3,6 +3,7 @@ package de.arbeitsagentur.opdt.walletsim.api;
 import de.arbeitsagentur.opdt.walletsim.attestation.WalletAttestationService;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,7 +26,7 @@ public class WalletAttestationApiController {
             @RequestParam(name = "challenge", required = false) String challenge) {
         Map<String, String> response = new LinkedHashMap<>();
         response.put("attestation", attestationService.attestationJwt(clientId));
-        if (audience != null && !audience.isBlank()) {
+        if (StringUtils.hasText(audience)) {
             response.put("pop", attestationService.popJwt(clientId, audience, challenge));
         }
         return response;

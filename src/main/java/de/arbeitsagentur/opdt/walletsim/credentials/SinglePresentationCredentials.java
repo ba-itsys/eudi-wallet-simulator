@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -27,7 +28,11 @@ public class SinglePresentationCredentials {
             int statusIndex,
             String holderKey) {}
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public SinglePresentationCredentials(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public String serialize(StoredCredential credential) {
         Payload payload = new Payload(
@@ -43,7 +48,7 @@ public class SinglePresentationCredentials {
     }
 
     public Optional<StoredCredential> deserialize(String encoded) {
-        if (encoded == null || encoded.isBlank()) {
+        if (!StringUtils.hasText(encoded)) {
             return Optional.empty();
         }
         try {
