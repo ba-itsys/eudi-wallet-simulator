@@ -1,8 +1,8 @@
 # Keycloak example
 
 Runs a real [keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp)
-verifier against this wallet simulator. The setup downloads the released extension jar from
-Maven Central. Override the version with EXTENSION_VERSION when running setup.sh.
+verifier against this wallet simulator. The setup builds the extension from the sibling checkout,
+override its location with EXTENSION_DIR when running setup.sh.
 
 ## Layout
 
@@ -20,7 +20,7 @@ Keycloak can fetch the trust list and the status list from inside the container.
 # 1. Start the simulator (from the repository root)
 SERVER_PORT=8081 APP_BASEURL=http://host.docker.internal:8081 mvn spring-boot:run
 
-# 2. Download the extension jar, create the verifier certificate,
+# 2. Build the extension jar, create the verifier certificate,
 #    fetch a registration certificate from the simulator, render the realm
 ./setup.sh
 
@@ -32,15 +32,27 @@ Open <http://localhost:8080/realms/wallet-demo/account/> and choose **Sign in wi
 **Open wallet**. The browser lands on the simulator's credential picker. Present a credential and
 the login completes with the disclosed claims mapped to the Keycloak user.
 
-The realm requests two credential types, a PID and a health insurance credential, as a credential
-set in optional mode. The verifier therefore accepts either one, and the picker lets you choose
-which credential type to answer with. Both types are part of the simulator's default wallet
+The realm requests a PID and a health insurance credential as one credential set with two
+options, `[["pid", "ehic"], ["pid"]]`. The verifier therefore accepts the PID together with the
+health insurance credential, or the PID alone, and the picker lets you choose which of the two
+combinations to answer with. Both credential types are part of the simulator's default wallet
 content.
 
-The extension builds the DCQL query from its mappers and supports two credential set modes,
-`optional` for one option per credential type and `all` for one option requesting every type.
-Richer combinations such as "both credentials or the PID alone" cannot be expressed by this
-verifier. The simulator handles them and covers them with tests.
+Every credential query also carries a `trusted_authorities` entry of type `etsi_tl` pointing at
+the simulator's credentials trust list, so the wallet only offers credentials whose issuer is
+anchored there.
+
+The realm configures this verbatim in DCQL syntax on the `oid4vp` identity provider:
+
+```json
+"credentialSets": "[{\"options\": [[\"pid\", \"ehic\"], [\"pid\"]]}]",
+"principalCredentialId": "pid",
+"trustedAuthoritiesMode": "etsi_tl"
+```
+
+The mappers name their credential with `credential.id`, which is what the options refer to. This
+needs the extension snapshot, so `setup.sh` builds the sibling checkout instead of downloading a
+release.
 
 The admin console is at <http://localhost:8080/admin> with user `admin` and password `admin`.
 

@@ -36,19 +36,27 @@ PICKER=$(curl -sS "$WALLET_URL" | tr '\n' ' ')
 printf '%s' "$PICKER" | grep -q 'data-credential-id="pid-maria-neumann"' || fail "picker does not offer the PID credential"
 FLOW_STATE=$(printf '%s' "$PICKER" | grep -o 'name="flowState" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"$//')
 [ -n "$FLOW_STATE" ] || fail "no flowState on the picker page"
-QUERY_ID=$(printf '%s' "$PICKER" | grep -o 'id="select-[^"]*-pid-maria-neumann"' | head -1 \
-  | sed 's/id="select-//;s/-pid-maria-neumann"//')
-[ -n "$QUERY_ID" ] || fail "no selection group for the PID credential on the picker"
 
-# the realm requests a credential set, so pick the option that contains the PID query
-SET_OPTION=$(printf '%s' "$PICKER" | tr '<' '\n' \
-  | grep "^option .*data-query-ids=\"[^\"]*${QUERY_ID}" \
+# the realm requests a credential set, answer with its first option and every query it contains
+SET_OPTION=$(printf '%s' "$PICKER" | tr '<' '\n' | grep '^option .*data-query-ids=' | head -1 \
   | grep -o 'value="[0-9]*"' | head -1 | tr -dc '0-9')
+QUERY_IDS=$(printf '%s' "$PICKER" | tr '<' '\n' | grep '^option .*data-query-ids=' | head -1 \
+  | sed 's/.*data-query-ids="//;s/".*//' | tr ',' ' ')
+[ -n "$QUERY_IDS" ] || fail "no credential set option on the picker"
 
-echo "4/5 Presenting the credential..."
+SELECTIONS=""
+for QUERY_ID in $QUERY_IDS; do
+  CREDENTIAL_ID=$(printf '%s' "$PICKER" | grep -o "id=\"select-${QUERY_ID}-[^\"]*\"" | head -1 \
+    | sed "s/id=\"select-${QUERY_ID}-//;s/\"$//")
+  [ -n "$CREDENTIAL_ID" ] || fail "no credential offered for query ${QUERY_ID}"
+  SELECTIONS="${SELECTIONS} --data-urlencode selection[${QUERY_ID}]=${CREDENTIAL_ID}"
+done
+
+echo "4/5 Presenting the credentials for ${QUERY_IDS}..."
+# shellcheck disable=SC2086
 REDIRECT=$(curl -sS -o /dev/null -w '%{redirect_url}' \
-  --data-urlencode "selection[${QUERY_ID}]=pid-maria-neumann" \
-  ${SET_OPTION:+--data-urlencode "setOption[0]=${SET_OPTION}"} \
+  ${SELECTIONS} \
+  --data-urlencode "setOption[0]=${SET_OPTION}" \
   --data-urlencode "flowState=${FLOW_STATE}" \
   "${SIMULATOR_URL}/authorize/submit")
 case "$REDIRECT" in

@@ -30,8 +30,9 @@
         "clientSecret": "not-used",
         "enforceHaip": "true",
         "responseMode": "direct_post.jwt",
-        "credentialSetMode": "optional",
-        "credentialSetPurpose": "Login with a PID or the health insurance credential",
+        "credentialSets": "[{\"purpose\": \"Login with a PID, optionally together with the health insurance credential\", \"options\": [[\"pid\", \"ehic\"], [\"pid\"]]}]",
+        "principalCredentialId": "pid",
+        "trustedAuthoritiesMode": "etsi_tl",
         "clientIdScheme": "x509_hash",
         "trustMaterialIdps": "etsi-trust-list",
         "walletScheme": "http://localhost:8081/authorize",
@@ -50,6 +51,7 @@
       "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
       "config": {
         "syncMode": "INHERIT",
+        "credential.id": "pid",
         "credential.type": "urn:eudi:pid:1",
         "claim": "family_name",
         "user.attribute": "lastName"
@@ -61,6 +63,7 @@
       "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
       "config": {
         "syncMode": "INHERIT",
+        "credential.id": "pid",
         "credential.type": "urn:eudi:pid:1",
         "claim": "given_name",
         "user.attribute": "firstName"
@@ -72,6 +75,7 @@
       "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
       "config": {
         "syncMode": "INHERIT",
+        "credential.id": "pid",
         "credential.type": "urn:eudi:pid:1",
         "claim": "birthdate",
         "user.attribute": "birthdate"
@@ -83,6 +87,7 @@
       "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
       "config": {
         "syncMode": "INHERIT",
+        "credential.id": "ehic",
         "credential.type": "urn:eudi:ehic:1",
         "claim": "family_name",
         "user.attribute": "lastName"
@@ -94,6 +99,7 @@
       "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
       "config": {
         "syncMode": "INHERIT",
+        "credential.id": "ehic",
         "credential.type": "urn:eudi:ehic:1",
         "claim": "given_name",
         "user.attribute": "firstName"
