@@ -4,6 +4,7 @@ import de.arbeitsagentur.opdt.walletsim.conformance.ConformanceSettings;
 import de.arbeitsagentur.opdt.walletsim.conformance.Finding;
 import de.arbeitsagentur.opdt.walletsim.conformance.RequestObjectValidator;
 import de.arbeitsagentur.opdt.walletsim.conformance.ValidationMode;
+import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.SinglePresentationCredentials;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import de.arbeitsagentur.opdt.walletsim.credentials.WalletCredentialService;
@@ -58,6 +59,7 @@ public class AuthorizeController {
     private final CredentialEditForms editForms;
     private final WalletCredentialService credentialService;
     private final SinglePresentationCredentials singlePresentationCredentials;
+    private final CredentialStore credentialStore;
 
     public AuthorizeController(
             RequestObjectClient requestObjectClient,
@@ -68,7 +70,8 @@ public class AuthorizeController {
             ResponseSubmitter responseSubmitter,
             CredentialEditForms editForms,
             WalletCredentialService credentialService,
-            SinglePresentationCredentials singlePresentationCredentials) {
+            SinglePresentationCredentials singlePresentationCredentials,
+            CredentialStore credentialStore) {
         this.requestObjectClient = requestObjectClient;
         this.validator = validator;
         this.conformanceSettings = conformanceSettings;
@@ -78,6 +81,7 @@ public class AuthorizeController {
         this.editForms = editForms;
         this.credentialService = credentialService;
         this.singlePresentationCredentials = singlePresentationCredentials;
+        this.credentialStore = credentialStore;
     }
 
     @GetMapping("/authorize")
@@ -136,6 +140,12 @@ public class AuthorizeController {
         return complete(result, model);
     }
 
+    private StoredCredential store(String credentialId) {
+        return credentialStore
+                .findById(credentialId)
+                .orElseThrow(() -> new InvalidRequestException("Unknown credential id: " + credentialId));
+    }
+
     private static Optional<String> firstNonBlank(String... values) {
         return java.util.Arrays.stream(values)
                 .filter(value -> value != null && !value.isBlank())
@@ -190,8 +200,8 @@ public class AuthorizeController {
         CredentialEditForm editForm = extra.stream()
                 .filter(credential -> credential.id().equals(templateId))
                 .findFirst()
-                .map(editForms::cloneForm)
-                .orElseGet(() -> editForms.cloneForm(templateId));
+                .map(editForms::cloneForSinglePresentation)
+                .orElseGet(() -> editForms.cloneForSinglePresentation(store(templateId)));
         editForm.setFlowState(form.getFlowState());
         editForm.setSinglePresentationCredential(form.getSinglePresentationCredential());
         return editView(editForm, model);
@@ -206,13 +216,14 @@ public class AuthorizeController {
             editForms.addNewClaim(form);
             return editView(form, model);
         }
-        String error = editForms.validationError(form);
+        String error = editForms.validationError(form, false);
         if (error != null) {
             model.addAttribute("formError", error);
             return editView(form, model);
         }
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
-        StoredCredential credential = credentialService.issueForSinglePresentation(editForms.toDefinition(form));
+        StoredCredential credential =
+                credentialService.issueForSinglePresentation(editForms.toDefinition(form), form.getStatusIndex());
         PresentationPlan plan = plan(request, List.of(credential));
         boolean matchesAnyQuery = plan.slots().stream()
                 .flatMap(slot -> slot.matches().stream())

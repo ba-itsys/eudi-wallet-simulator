@@ -2,11 +2,13 @@ package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.nimbusds.jwt.SignedJWT;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -67,11 +69,16 @@ class EditDuringFlowTest {
             assertThat(editForm.getBody()).contains("id=\"claim-family_name\"");
             assertThat(editForm.getBody()).contains("Neumann");
             assertThat(editForm.getBody()).contains("name=\"flowState\"");
+            assertThat(editForm.getBody())
+                    .as("the credential keeps its id and status list slot")
+                    .contains("value=\"pid-maria-neumann\"")
+                    .contains("name=\"statusIndex\"");
 
             ResponseEntity<String> save = client().post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("id=pid-maria-edited&name=" + URLEncoder.encode("PID Maria (edited)", StandardCharsets.UTF_8)
+                    .body("id=pid-maria-neumann&statusIndex=0&name="
+                            + URLEncoder.encode("PID Maria (edited)", StandardCharsets.UTF_8)
                             + "&vct=" + URLEncoder.encode("urn:eudi:pid:1", StandardCharsets.UTF_8)
                             + "&validityDays=30"
                             + "&claimValues%5Bfamily_name%5D=Edited-Neumann"
@@ -84,26 +91,29 @@ class EditDuringFlowTest {
             assertThat(save.getStatusCode())
                     .as("issuing returns to the selection instead of presenting")
                     .isEqualTo(HttpStatus.OK);
-            assertThat(save.getBody()).contains("data-credential-id=\"pid-maria-edited\"");
-            int radioStart = save.getBody().indexOf("select-pid-pid-maria-edited");
+            assertThat(save.getBody()).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(save.getBody())
+                    .as("the wallet credential is replaced for this flow, not duplicated")
+                    .containsOnlyOnce("data-credential-id=\"pid-maria-neumann\"");
+            int radioStart = save.getBody().indexOf("select-pid-pid-maria-neumann");
             assertThat(save.getBody().substring(radioStart, radioStart + 120))
                     .as("the new credential is preselected")
                     .contains("checked");
-            assertThat(save.getBody()).contains("this presentation only");
+            assertThat(save.getBody()).contains("modified for this presentation");
 
-            ResponseEntity<String> stored = client().get()
-                    .uri("/api/credentials/pid-maria-edited")
+            JsonNode stored = client().get()
+                    .uri("/api/credentials/pid-maria-neumann")
                     .retrieve()
-                    .toEntity(String.class);
-            assertThat(stored.getStatusCode())
+                    .body(JsonNode.class);
+            assertThat(stored.get("claims").get("family_name").asText())
                     .as("editing during a flow does not change the wallet content")
-                    .isEqualTo(HttpStatus.NOT_FOUND);
+                    .isEqualTo("Neumann");
 
             String carried = extractHiddenField(save.getBody(), "singlePresentationCredential");
             ResponseEntity<String> present = client().post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-edited&singlePresentationCredential="
+                    .body("selection%5Bpid%5D=pid-maria-neumann&singlePresentationCredential="
                             + URLEncoder.encode(carried, StandardCharsets.UTF_8) + "&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
@@ -120,6 +130,16 @@ class EditDuringFlowTest {
                     .map(part -> new String(Base64.getUrlDecoder().decode(part), StandardCharsets.UTF_8))
                     .toList();
             assertThat(disclosures).anyMatch(d -> d.contains("Edited-Neumann"));
+
+            SignedJWT issuerJwt = SignedJWT.parse(presentation.split("~")[0]);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> status =
+                    (Map<String, Object>) issuerJwt.getJWTClaimsSet().getClaim("status");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> statusList = (Map<String, Object>) status.get("status_list");
+            assertThat(((Number) statusList.get("idx")).intValue())
+                    .as("the status list slot of the wallet credential is inherited")
+                    .isEqualTo(0);
         }
     }
 

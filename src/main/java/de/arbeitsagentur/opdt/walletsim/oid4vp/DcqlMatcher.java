@@ -38,7 +38,11 @@ public class DcqlMatcher {
     // extraCredentials are candidates that are not wallet content, for example a credential issued
     // for this presentation only
     public PresentationPlan plan(DcqlQuery query, List<StoredCredential> extraCredentials) {
-        List<StoredCredential> candidates = new ArrayList<>(store.findAll());
+        List<String> replacedIds =
+                extraCredentials.stream().map(StoredCredential::id).toList();
+        List<StoredCredential> candidates = new ArrayList<>(store.findAll().stream()
+                .filter(credential -> !replacedIds.contains(credential.id()))
+                .toList());
         candidates.addAll(extraCredentials);
         Map<String, List<CredentialMatch>> matchesByQuery = new LinkedHashMap<>();
         for (CredentialQuery credentialQuery : query.credentials()) {

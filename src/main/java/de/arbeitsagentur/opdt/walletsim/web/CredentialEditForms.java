@@ -35,9 +35,24 @@ public class CredentialEditForms {
     }
 
     public CredentialEditForm cloneForm(StoredCredential template) {
+        return cloneForm(template, uniqueIdFrom(template.id()));
+    }
+
+    /**
+     * A credential modified for a single presentation keeps the id and the status list slot of the
+     * credential it was derived from. It is the same credential from the verifier's point of view,
+     * so revoking the wallet credential also invalidates the modified one.
+     */
+    public CredentialEditForm cloneForSinglePresentation(StoredCredential template) {
+        CredentialEditForm form = cloneForm(template, template.id());
+        form.setStatusIndex(template.statusIndex() >= 0 ? template.statusIndex() : null);
+        return form;
+    }
+
+    private CredentialEditForm cloneForm(StoredCredential template, String id) {
         CredentialEditForm form = new CredentialEditForm();
-        form.setId(uniqueIdFrom(template.id()));
-        form.setName(template.name() + " (copy)");
+        form.setId(id);
+        form.setName(template.name());
         form.setVct(template.vct());
         form.setClaimValues(renderClaimValues(template.claims()));
         form.getClaimValues().keySet().forEach(path -> form.getClaimAlwaysDisclosed()
@@ -75,10 +90,15 @@ public class CredentialEditForms {
 
     // The validation violation for the submitted form, or null when it can be issued.
     public String validationError(CredentialEditForm form) {
+        return validationError(form, true);
+    }
+
+    // a credential for a single presentation may reuse the id of the wallet credential it replaces
+    public String validationError(CredentialEditForm form, boolean requireUnusedId) {
         if (form.getId() == null || form.getId().isBlank()) {
             return "Credential id is required.";
         }
-        if (store.findById(form.getId().trim()).isPresent()) {
+        if (requireUnusedId && store.findById(form.getId().trim()).isPresent()) {
             return "A credential with id '" + form.getId().trim() + "' already exists.";
         }
         if (form.getName() == null || form.getName().isBlank()) {
