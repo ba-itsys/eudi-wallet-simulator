@@ -24,6 +24,7 @@ public class SinglePresentationCredentials {
             Map<String, Object> claims,
             List<String> alwaysDisclosedClaims,
             String sdJwt,
+            int statusIndex,
             String holderKey) {}
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -36,6 +37,7 @@ public class SinglePresentationCredentials {
                 credential.claims(),
                 credential.alwaysDisclosedClaims(),
                 credential.sdJwt(),
+                credential.statusIndex(),
                 credential.holderKey().toJSONString());
         return Base64URL.encode(objectMapper.writeValueAsBytes(payload)).toString();
     }
@@ -55,7 +57,7 @@ public class SinglePresentationCredentials {
                     payload.claims(),
                     payload.alwaysDisclosedClaims(),
                     payload.sdJwt(),
-                    -1,
+                    payload.statusIndex(),
                     ECKey.parse(payload.holderKey()),
                     CredentialSource.SINGLE_PRESENTATION));
         } catch (Exception e) {

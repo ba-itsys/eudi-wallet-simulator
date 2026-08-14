@@ -19,6 +19,7 @@ public class CredentialEditForm {
     private String newClaimValue;
     private String flowState;
     private String singlePresentationCredential;
+    private Integer statusIndex;
 
     public String getId() {
         return id;
@@ -82,6 +83,14 @@ public class CredentialEditForm {
 
     public void setNewClaimValue(String newClaimValue) {
         this.newClaimValue = newClaimValue;
+    }
+
+    public Integer getStatusIndex() {
+        return statusIndex;
+    }
+
+    public void setStatusIndex(Integer statusIndex) {
+        this.statusIndex = statusIndex;
     }
 
     public String getSinglePresentationCredential() {

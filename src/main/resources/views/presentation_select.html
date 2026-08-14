@@ -76,7 +76,7 @@
                                    data-th-for="'select-' + ${slot.queryId} + '-' + ${match.credential.id}">
                                 <strong data-th-text="${match.credential.name}">Credential</strong>
                                 <span class="badge text-bg-warning"
-                                      data-th-if="${match.credential.source.name() == 'SINGLE_PRESENTATION'}">this presentation only</span><br/>
+                                      data-th-if="${match.credential.source.name() == 'SINGLE_PRESENTATION'}">modified for this presentation</span><br/>
                                 <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
                                 <small data-th-each="option : ${match.claimSetOptions}"
                                        data-th-attr="data-claim-set-query=${slot.queryId},data-claim-set-option=${option.index}">Disclosed claims:

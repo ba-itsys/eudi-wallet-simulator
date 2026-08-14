@@ -24,9 +24,11 @@ public class WalletCredentialService {
     /**
      * Issues a credential that exists only for the current presentation. It is signed like any
      * other credential but never enters the wallet, so a presentation flow cannot change the
-     * wallet content. Persistent credentials are created from the start page instead.
+     * wallet content. Persistent credentials are created from the start page instead. The status
+     * list slot is inherited from the credential it was derived from, so revoking that credential
+     * also invalidates this one. Without a slot the credential carries no status reference.
      */
-    public StoredCredential issueForSinglePresentation(CredentialDefinition definition) {
+    public StoredCredential issueForSinglePresentation(CredentialDefinition definition, Integer statusIndex) {
         ECKey holderKey = pki.generateCredentialBindingKey();
         return new StoredCredential(
                 definition.id(),
@@ -35,8 +37,8 @@ public class WalletCredentialService {
                 definition.vct(),
                 definition.claims(),
                 definition.alwaysDisclosedClaims(),
-                issuer.issue(definition, null, holderKey),
-                -1,
+                issuer.issue(definition, statusIndex, holderKey),
+                statusIndex == null ? -1 : statusIndex,
                 holderKey,
                 CredentialSource.SINGLE_PRESENTATION);
     }

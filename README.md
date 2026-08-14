@@ -96,10 +96,11 @@ claims shown on each credential.
 
 *Present credentials* answers with one presentation per requested query. Each query row has its
 own *New from template*, which clones the credential selected in that row and lets you change the
-claims. Such a credential is issued for the current presentation only. It travels with the form,
-is preselected in the row it belongs to, and never enters the wallet, so a presentation flow
-cannot change what later requests see. Persistent credentials are created on the start page.
-Every issued credential gets a fresh holder binding key.
+claims. Such a credential is issued for the current presentation only. It keeps the id and the
+status list slot of the credential it came from, so it replaces that credential for this flow and
+revoking the wallet credential also invalidates it. It travels with the form and never enters the
+wallet, so a presentation flow cannot change what later requests see. Persistent credentials are
+created on the start page. Every issued credential gets a fresh holder binding key.
 
 Conformance warnings appear on the picker when the verifier request violates OID4VP or HAIP. In
 `strict` mode such requests are refused and the wallet answers the verifier with an
