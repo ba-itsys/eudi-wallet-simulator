@@ -18,10 +18,12 @@ import tools.jackson.databind.ObjectMapper;
 public class RegistrationCertificateApiController {
 
     private final RegistrationCertificateService registrationCertificates;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public RegistrationCertificateApiController(RegistrationCertificateService registrationCertificates) {
+    public RegistrationCertificateApiController(
+            RegistrationCertificateService registrationCertificates, ObjectMapper objectMapper) {
         this.registrationCertificates = registrationCertificates;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/api/registration-certificates")

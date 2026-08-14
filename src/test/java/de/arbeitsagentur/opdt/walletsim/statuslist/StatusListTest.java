@@ -1,5 +1,6 @@
 package de.arbeitsagentur.opdt.walletsim.statuslist;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jose.crypto.ECDSAVerifier;
@@ -17,7 +18,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -31,13 +31,10 @@ class StatusListTest {
     @LocalServerPort
     private int port;
 
-    private RestClient client() {
-        return RestClient.create("http://localhost:" + port);
-    }
-
     @Test
     void statusListTokenValidatesAndReflectsRevocation() throws Exception {
-        JsonNode credential = client().get()
+        JsonNode credential = client(port)
+                .get()
                 .uri("/api/credentials/pid-erika-mustermann")
                 .retrieve()
                 .body(JsonNode.class);
@@ -47,7 +44,8 @@ class StatusListTest {
 
         assertThat(statusBitAt(idx, expectedSub)).isZero();
 
-        ResponseEntity<JsonNode> revocation = client().post()
+        ResponseEntity<JsonNode> revocation = client(port)
+                .post()
                 .uri("/api/credentials/{id}/status", id)
                 .header("Content-Type", "application/json")
                 .body(Map.of("status", 1))
@@ -62,14 +60,16 @@ class StatusListTest {
                 .as("only the credential's own index is flipped")
                 .isZero();
 
-        JsonNode liveStatus = client().get()
+        JsonNode liveStatus = client(port)
+                .get()
                 .uri("/api/credentials/{id}/status", id)
                 .retrieve()
                 .body(JsonNode.class);
         assertThat(liveStatus.get("status").asInt()).isEqualTo(1);
         assertThat(liveStatus.get("idx").asInt()).isEqualTo(idx);
 
-        client().post()
+        client(port)
+                .post()
                 .uri("/api/credentials/{id}/status", id)
                 .header("Content-Type", "application/json")
                 .body(Map.of("status", 0))
@@ -81,7 +81,8 @@ class StatusListTest {
     void rejectsOutOfRangeStatusAndUnknownCredential() {
         String id = "pid-erika-mustermann";
 
-        ResponseEntity<String> outOfRange = client().post()
+        ResponseEntity<String> outOfRange = client(port)
+                .post()
                 .uri("/api/credentials/{id}/status", id)
                 .header("Content-Type", "application/json")
                 .body(Map.of("status", 2))
@@ -90,7 +91,8 @@ class StatusListTest {
                 .toEntity(String.class);
         assertThat(outOfRange.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 
-        ResponseEntity<String> unknown = client().post()
+        ResponseEntity<String> unknown = client(port)
+                .post()
                 .uri("/api/credentials/{id}/status", "does-not-exist")
                 .header("Content-Type", "application/json")
                 .body(Map.of("status", 1))
@@ -101,8 +103,9 @@ class StatusListTest {
     }
 
     private int statusBitAt(int idx, String expectedSub) throws Exception {
-        ResponseEntity<String> response = client().get()
-                .uri("/status-list")
+        ResponseEntity<String> response = client(port)
+                .get()
+                .uri("/api/status-list")
                 .header("Accept", "application/statuslist+jwt")
                 .retrieve()
                 .toEntity(String.class);

@@ -14,7 +14,7 @@ public final class ClientMetadataKeys {
     public static List<Map<String, Object>> encryptionKeys(Map<String, Object> clientMetadata) {
         if (clientMetadata == null
                 || !(clientMetadata.get("jwks") instanceof Map<?, ?> jwks)
-                || !(((Map<String, Object>) jwks).get("keys") instanceof List<?> keys)) {
+                || !(jwks.get("keys") instanceof List<?> keys)) {
             return List.of();
         }
         return keys.stream()

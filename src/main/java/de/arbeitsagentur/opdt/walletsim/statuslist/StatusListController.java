@@ -16,7 +16,7 @@ public class StatusListController {
         this.statusListService = statusListService;
     }
 
-    @GetMapping("/status-list")
+    @GetMapping("/api/status-list")
     public ResponseEntity<String> statusList() {
         return ResponseEntity.ok()
                 .contentType(STATUS_LIST_JWT)

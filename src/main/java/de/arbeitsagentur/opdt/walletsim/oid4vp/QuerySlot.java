@@ -1,6 +1,7 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -19,7 +20,7 @@ public record QuerySlot(String queryId, List<CredentialMatch> matches) {
                 }
             }
         }
-        options.sort((left, right) -> Integer.compare(left.index(), right.index()));
+        options.sort(Comparator.comparingInt(ClaimSetOption::index));
         return options;
     }
 }

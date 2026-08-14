@@ -44,23 +44,17 @@ public class WalletCredentialService {
     }
 
     public StoredCredential issue(CredentialDefinition definition, CredentialSource source) {
-        synchronized (store) {
-            int statusIndex = store.reserveStatusIndex();
-            ECKey holderKey = pki.generateCredentialBindingKey();
-            String sdJwt = issuer.issue(definition, statusIndex, holderKey);
-            StoredCredential credential = new StoredCredential(
-                    definition.id(),
-                    definition.name(),
-                    definition.format(),
-                    definition.vct(),
-                    definition.claims(),
-                    definition.alwaysDisclosedClaims(),
-                    sdJwt,
-                    statusIndex,
-                    holderKey,
-                    source);
-            store.add(credential);
-            return credential;
-        }
+        ECKey holderKey = pki.generateCredentialBindingKey();
+        return store.add(statusIndex -> new StoredCredential(
+                definition.id(),
+                definition.name(),
+                definition.format(),
+                definition.vct(),
+                definition.claims(),
+                definition.alwaysDisclosedClaims(),
+                issuer.issue(definition, statusIndex, holderKey),
+                statusIndex,
+                holderKey,
+                source));
     }
 }

@@ -77,6 +77,8 @@ public final class TestVerifier implements AutoCloseable {
     private String requestObjectTyp = "oauth-authz-req+jwt";
     private boolean signWithForeignKey;
     private boolean omitRedirectUri;
+    private int rejectionStatus;
+    private String rejectionBody;
 
     public TestVerifier(String dcqlQueryJson) throws Exception {
         this.dcqlQueryJson = dcqlQueryJson;
@@ -94,10 +96,9 @@ public final class TestVerifier implements AutoCloseable {
         server.createContext("/callback", exchange -> {
             String form = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             received.complete(new ReceivedResponse(parseForm(form)));
-            byte[] body = (omitRedirectUri ? "{}" : "{\"redirect_uri\":\"" + redirectUri() + "\"}")
-                    .getBytes(StandardCharsets.UTF_8);
+            byte[] body = responseBody().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, body.length);
+            exchange.sendResponseHeaders(rejectionStatus == 0 ? 200 : rejectionStatus, body.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(body);
             }
@@ -125,6 +126,20 @@ public final class TestVerifier implements AutoCloseable {
     public TestVerifier withoutRedirectUri() {
         this.omitRedirectUri = true;
         return this;
+    }
+
+    // the verifier refuses the presentation, for example because it does not accept the credential
+    public TestVerifier withRejectedResponses(int status, String body) {
+        this.rejectionStatus = status;
+        this.rejectionBody = body;
+        return this;
+    }
+
+    private String responseBody() {
+        if (rejectionStatus != 0) {
+            return rejectionBody;
+        }
+        return omitRedirectUri ? "{}" : "{\"redirect_uri\":\"" + redirectUri() + "\"}";
     }
 
     // Adds a verifier_info claim, e.g. the value from the simulator's registration certificate API.

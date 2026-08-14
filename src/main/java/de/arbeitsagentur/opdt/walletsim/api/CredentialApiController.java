@@ -1,6 +1,6 @@
 package de.arbeitsagentur.opdt.walletsim.api;
 
-import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
+import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
 import java.util.List;
@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class CredentialApiController {
 
     private final CredentialStore store;
-    private final AppUrls urls;
+    private final AppProperties properties;
 
-    public CredentialApiController(CredentialStore store, AppUrls urls) {
+    public CredentialApiController(CredentialStore store, AppProperties properties) {
         this.store = store;
-        this.urls = urls;
+        this.properties = properties;
     }
 
     @GetMapping
@@ -37,6 +37,6 @@ public class CredentialApiController {
 
     private CredentialResponse toResponse(StoredCredential credential) {
         int status = store.statusOf(credential.id()).orElse(0);
-        return CredentialResponse.of(credential, urls.statusListUri(), status);
+        return CredentialResponse.of(credential, properties.statusListUri(), status);
     }
 }

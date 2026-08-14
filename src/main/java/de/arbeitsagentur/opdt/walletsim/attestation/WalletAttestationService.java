@@ -7,7 +7,7 @@ import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
+import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.security.interfaces.ECPrivateKey;
 import java.time.Instant;
@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * OAuth 2.0 attestation-based client authentication: the attestation JWT is signed by the wallet
@@ -29,18 +30,18 @@ public class WalletAttestationService {
     private static final long VALIDITY_MINUTES = 5;
 
     private final SimulatorPki pki;
-    private final AppUrls urls;
+    private final AppProperties properties;
 
-    public WalletAttestationService(SimulatorPki pki, AppUrls urls) {
+    public WalletAttestationService(SimulatorPki pki, AppProperties properties) {
         this.pki = pki;
-        this.urls = urls;
+        this.properties = properties;
     }
 
     public String attestationJwt(String clientId) {
         try {
             Instant now = Instant.now();
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                    .issuer(urls.baseUrl())
+                    .issuer(properties.baseUrl())
                     .subject(clientId)
                     .issueTime(Date.from(now))
                     .notBeforeTime(Date.from(now))
@@ -71,7 +72,7 @@ public class WalletAttestationService {
                     .issueTime(Date.from(now))
                     .notBeforeTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(VALIDITY_MINUTES, ChronoUnit.MINUTES)));
-            if (challenge != null && !challenge.isBlank()) {
+            if (StringUtils.hasText(challenge)) {
                 claims.claim("challenge", challenge);
             }
             SignedJWT jwt = new SignedJWT(

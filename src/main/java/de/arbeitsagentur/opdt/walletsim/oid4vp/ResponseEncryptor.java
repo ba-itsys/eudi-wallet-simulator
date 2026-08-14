@@ -20,7 +20,11 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class ResponseEncryptor {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public ResponseEncryptor(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public String encrypt(AuthorizationRequest request, Map<String, Object> responseParameters) {
         try {

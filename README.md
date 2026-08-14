@@ -22,8 +22,8 @@ A ready to run Keycloak verifier setup is in [`examples/keycloak`](examples/keyc
    `client_id` and `request_uri`. HAIP is mandatory here, so only the `x509_hash` client
    identifier prefix and the encrypted response mode `direct_post.jwt` are accepted.
 2. Configure the trust anchor. The verifier finds the credential issuers in the ETSI TS 119 602
-   trust list at `GET /trust-lists/credentials`. Wallet providers are listed at
-   `GET /trust-lists/wallet-providers`.
+   trust list at `GET /api/trust-lists/credentials`. Wallet providers are listed at
+   `GET /api/trust-lists/wallet-providers`.
 3. Get a registration certificate. Every request must carry `verifier_info`. Call
    `GET /api/registration-certificates?client_id=x509_hash:…` and put the returned `verifierInfo`
    value into the verifier configuration. The registrar key is persisted. The certificate stays
@@ -79,6 +79,14 @@ per claim marks it as always disclosed, which makes it a plain member of the cre
 instead of a selectively disclosable one. In the seed file the same is expressed per credential
 with `alwaysDisclosedClaims`.
 
+The pre defined PID credentials use the claim names of the EUDI PID rulebook for the SD-JWT VC
+encoding. The rulebook requires no attribute to be a plain member of the credential body, so all
+seeded claims are selectively disclosable. The two `urn:eudi:pid:de:1` credentials follow the
+German PID rulebook instead, which carries no document number, no personal administrative number,
+no issuing jurisdiction and no sex, adds `source_document_type`, `birth_name` and
+`age_equal_or_over`, and stores string values in upper case. The Italian credential keeps the EU
+optional attributes so a verifier can be tested against those as well.
+
 During a verification the picker shows one selection group per requested DCQL credential query.
 The evaluation covers vct and claim matching, claim_sets in preference order, credential_sets
 combinations and trusted_authorities (aki and etsi_tl). A trusted authority that points at one of
@@ -120,12 +128,13 @@ similar frameworks can rely on these selectors.
 | `#select-<id>` | Radio button that selects a credential on the home page |
 | `#select-<queryId>-<id>` | Radio button on the picker, one group per DCQL credential query |
 | `#present-credential`, `#cancel-presentation` | Actions on the picker |
-| `#new-from-template-<queryId>` | Clone the credential selected for that query and present it |
+| `#new-from-template-<queryId>` | Clone the credential selected for that query and issue the clone for this presentation |
 | `#new-from-template`, `#new-credential`, `#toggle-status-<id>` | Actions on the home page |
 | `#credential-id`, `#credential-name`, `#credential-vct`, `#validity-days` | Edit form header fields |
 | `#claim-<name>` | One input per claim on the edit form. Nested claims use dot notation, for example `claim-address.locality` |
 | `#always-disclosed-<name>` | Checkbox marking a claim as always disclosed |
-| `#set-option-<setIndex>` | Credential set dropdown on the picker. Each option carries `data-query-ids`, the value `skip` drops an optional set |
+| `#set-option-<setIndex>` | Credential set dropdown on the picker. Each option carries `data-query-ids`, a comma separated list. The value `skip` drops an optional set |
+| `[data-query-slot="<queryId>"]` | Row of one DCQL credential query on the picker. An option that names several query ids shows one row per id |
 | `#claim-set-<queryId>` | Claim set dropdown for a query on the picker |
 | `#new-claim-name`, `#new-claim-value`, `#add-claim` | Add a claim on the edit form |
 | `#issue-credential`, `#cancel-edit` | Edit form actions |
@@ -200,13 +209,17 @@ volumes:
 
 ## API
 
+Everything a machine calls lives under `/api`. The paths outside it are the ones a browser opens:
+the wallet content at `/`, the verifier entry point `/authorize`, and the credential edit forms
+under `/credentials`.
+
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/credentials`, `GET /api/credentials/{id}` | Wallet content with SD-JWT and status |
 | `POST /api/credentials/{id}/status` `{"status": 1}` | Revoke with 1, reactivate with 0 |
 | `GET /api/credentials/{id}/status` | Current status list value |
-| `GET /status-list` | IETF Token Status List (`statuslist+jwt`) |
-| `GET /trust-lists/credentials`, `GET /trust-lists/wallet-providers` | ETSI TS 119 602 LoTE JWTs |
+| `GET /api/status-list` | IETF Token Status List (`statuslist+jwt`) |
+| `GET /api/trust-lists/credentials`, `GET /api/trust-lists/wallet-providers` | ETSI TS 119 602 LoTE JWTs |
 | `GET /api/registration-certificates?client_id=…&purpose=…` | Issues an `rc-rp+jwt` and the matching `verifierInfo` value |
 | `GET /api/wallet-attestation?client_id=…&aud=…` | OAuth client attestation and PoP pair |
 | `GET /api/config` | Effective configuration, for example the conformance mode |

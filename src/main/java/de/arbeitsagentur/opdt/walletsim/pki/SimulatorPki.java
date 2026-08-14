@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
+import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
@@ -51,6 +52,7 @@ public class SimulatorPki {
             new X500Name("CN=EUDI Wallet Simulator Wallet Provider,O=EUDI Wallet Simulator");
     private static final X500Name REGISTRAR_NAME =
             new X500Name("CN=EUDI Wallet Simulator Registrar,O=EUDI Wallet Simulator");
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final Path pkiDir;
     private final KeyPair caKeyPair;
@@ -194,11 +196,16 @@ public class SimulatorPki {
         X509Certificate get() throws Exception;
     }
 
+    // random serials, because certificates created within the same millisecond must not collide
+    private static BigInteger serialNumber() {
+        return new BigInteger(64, RANDOM).add(BigInteger.ONE);
+    }
+
     private static X509Certificate selfSignedCa(KeyPair keyPair) throws Exception {
         Instant now = Instant.now();
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 CA_NAME,
-                BigInteger.valueOf(now.toEpochMilli()),
+                serialNumber(),
                 Date.from(now.minus(1, ChronoUnit.HOURS)),
                 Date.from(now.plus(10 * 365, ChronoUnit.DAYS)),
                 CA_NAME,
@@ -218,7 +225,7 @@ public class SimulatorPki {
         Instant now = Instant.now();
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 new X500Name(caCertificate.getSubjectX500Principal().getName()),
-                BigInteger.valueOf(now.toEpochMilli() + 1),
+                serialNumber(),
                 Date.from(now.minus(1, ChronoUnit.HOURS)),
                 Date.from(now.plus(2 * 365, ChronoUnit.DAYS)),
                 subject,

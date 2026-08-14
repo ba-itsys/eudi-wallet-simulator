@@ -8,10 +8,11 @@ import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
+import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.credentials.CredentialStore;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.security.interfaces.ECPrivateKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -19,6 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,12 +36,12 @@ public class StatusListService {
 
     private final CredentialStore store;
     private final SimulatorPki pki;
-    private final AppUrls urls;
+    private final AppProperties properties;
 
-    public StatusListService(CredentialStore store, SimulatorPki pki, AppUrls urls) {
+    public StatusListService(CredentialStore store, SimulatorPki pki, AppProperties properties) {
         this.store = store;
         this.pki = pki;
-        this.urls = urls;
+        this.properties = properties;
     }
 
     public String statusListJwt() {
@@ -49,8 +51,8 @@ public class StatusListService {
 
             Instant now = Instant.now();
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                    .subject(urls.statusListUri())
-                    .issuer(urls.baseUrl())
+                    .subject(properties.statusListUri())
+                    .issuer(properties.baseUrl())
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(24, ChronoUnit.HOURS)))
                     .claim("ttl", TTL_SECONDS)
@@ -88,14 +90,10 @@ public class StatusListService {
         return bitstring;
     }
 
-    private static byte[] deflate(byte[] data) {
-        Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
-        deflater.setInput(data);
-        deflater.finish();
+    private static byte[] deflate(byte[] data) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buffer = new byte[1024];
-        while (!deflater.finished()) {
-            out.write(buffer, 0, deflater.deflate(buffer));
+        try (DeflaterOutputStream deflater = new DeflaterOutputStream(out, new Deflater(Deflater.BEST_COMPRESSION))) {
+            deflater.write(data);
         }
         return out.toByteArray();
     }

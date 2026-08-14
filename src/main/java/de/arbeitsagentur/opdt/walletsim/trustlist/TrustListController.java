@@ -16,12 +16,12 @@ public class TrustListController {
         this.trustListService = trustListService;
     }
 
-    @GetMapping("/trust-lists/credentials")
+    @GetMapping("/api/trust-lists/credentials")
     public ResponseEntity<String> credentials() {
         return trustList(TrustListProfile.CREDENTIALS);
     }
 
-    @GetMapping("/trust-lists/wallet-providers")
+    @GetMapping("/api/trust-lists/wallet-providers")
     public ResponseEntity<String> walletProviders() {
         return trustList(TrustListProfile.WALLET_PROVIDERS);
     }

@@ -1,5 +1,7 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.client;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.hiddenField;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jose.EncryptionMethod;
@@ -15,7 +17,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,13 +31,6 @@ class EncryptedResponseTest {
     @LocalServerPort
     private int port;
 
-    private RestClient client() {
-        return RestClient.builder()
-                .baseUrl("http://localhost:" + port)
-                .defaultStatusHandler(status -> true, (request, response) -> {})
-                .build();
-    }
-
     @Test
     void directPostJwtEncryptsResponseToVerifierKey() throws Exception {
         try (TestVerifier verifier = TestVerifier.pidVerifier().withEncryptedResponses()) {
@@ -46,11 +40,12 @@ class EncryptedResponseTest {
                     + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
 
             ResponseEntity<String> picker =
-                    client().get().uri(authorizeUri).retrieve().toEntity(String.class);
+                    client(port).get().uri(authorizeUri).retrieve().toEntity(String.class);
             assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
-            String flowState = extractHiddenField(picker.getBody(), "flowState");
+            String flowState = hiddenField(picker.getBody(), "flowState");
 
-            ResponseEntity<String> submit = client().post()
+            ResponseEntity<String> submit = client(port)
+                    .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
@@ -84,13 +79,5 @@ class EncryptedResponseTest {
                     .readValue(new ObjectMapper().writeValueAsString(payload.get("vp_token")), JsonNode.class);
             assertThat(vpToken.get("pid").get(0).asText()).contains("~");
         }
-    }
-
-    private static String extractHiddenField(String html, String name) {
-        String marker = "name=\"" + name + "\" value=\"";
-        int start = html.indexOf(marker);
-        assertThat(start).as("hidden field '%s' present", name).isNotNegative();
-        start += marker.length();
-        return html.substring(start, html.indexOf('"', start));
     }
 }

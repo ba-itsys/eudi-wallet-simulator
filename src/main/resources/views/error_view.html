@@ -1,19 +1,23 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head data-th-insert="~{fragments/snippets :: head}">
-    <title>EUDI Wallet Simulator</title>
-</head>
+<head data-th-replace="~{fragments/snippets :: head}"></head>
 <body>
 <nav data-th-replace="~{fragments/snippets :: navbar}"></nav>
 <div class="container">
-    <h1>Request failed</h1>
-    <div class="alert alert-danger" data-th-text="${errorMessage}">Error message</div>
+    <h1 data-th-text="${errorTitle} ?: 'Request failed'">Request failed</h1>
+    <div id="error-message" class="alert alert-danger" data-th-text="${errorMessage}">Error message</div>
+    <div id="error-detail" class="mb-3" data-th-if="${errorDetail}">
+        <strong>What the verifier said</strong>
+        <pre class="border rounded p-3 mb-0" style="white-space:pre-wrap" data-th-text="${errorDetail}">detail</pre>
+    </div>
     <div class="alert alert-warning" data-th-if="${findings != null and not #lists.isEmpty(findings)}">
         <strong>Conformance findings</strong>
         <ul class="mb-0">
             <li data-th-each="finding : ${findings}" data-th-text="${finding.message}">finding</li>
         </ul>
     </div>
+    <a class="btn btn-secondary" id="back-to-wallet" style="width:15rem"
+       data-th-href="@{__${basepath}__/}">Back to the wallet</a>
 </div>
 <footer data-th-replace="~{fragments/snippets :: footer}"></footer>
 </body>

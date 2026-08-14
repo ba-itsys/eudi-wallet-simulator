@@ -3,8 +3,13 @@ package de.arbeitsagentur.opdt.walletsim.web;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.util.StringUtils;
 
 // Picker form: one selected credential id per DCQL credential query, plus the carried flow state.
+@Getter
+@Setter
 public class SelectionForm {
 
     private Map<String, String> selection = new LinkedHashMap<>();
@@ -13,49 +18,7 @@ public class SelectionForm {
     private String flowState;
     private String singlePresentationCredential;
 
-    public Map<String, String> getSelection() {
-        return selection;
-    }
-
-    public void setSelection(Map<String, String> selection) {
-        this.selection = selection;
-    }
-
-    public Map<String, String> getSetOption() {
-        return setOption;
-    }
-
-    public void setSetOption(Map<String, String> setOption) {
-        this.setOption = setOption;
-    }
-
-    public Map<String, String> getClaimSet() {
-        return claimSet;
-    }
-
-    public void setClaimSet(Map<String, String> claimSet) {
-        this.claimSet = claimSet;
-    }
-
-    public String getFlowState() {
-        return flowState;
-    }
-
-    public void setFlowState(String flowState) {
-        this.flowState = flowState;
-    }
-
-    public String getSinglePresentationCredential() {
-        return singlePresentationCredential;
-    }
-
-    public void setSinglePresentationCredential(String singlePresentationCredential) {
-        this.singlePresentationCredential = singlePresentationCredential;
-    }
-
     public Optional<String> firstSelectedCredentialId() {
-        return selection.values().stream()
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
+        return selection.values().stream().filter(StringUtils::hasText).findFirst();
     }
 }

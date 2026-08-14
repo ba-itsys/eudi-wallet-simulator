@@ -44,7 +44,7 @@ class TrustListEndpointTest {
 
     @Test
     void credentialsTrustListIsSignedLoteJwtAnchoringTheCa() throws Exception {
-        ResponseEntity<String> response = fetch("/trust-lists/credentials");
+        ResponseEntity<String> response = fetch("/api/trust-lists/credentials");
 
         assertThat(response.getHeaders().getContentType().toString()).startsWith("application/jwt");
         SignedJWT jwt = SignedJWT.parse(response.getBody());
@@ -68,7 +68,7 @@ class TrustListEndpointTest {
 
     @Test
     void walletProvidersTrustListUsesWalletProviderProfile() throws Exception {
-        ResponseEntity<String> response = fetch("/trust-lists/wallet-providers");
+        ResponseEntity<String> response = fetch("/api/trust-lists/wallet-providers");
 
         SignedJWT jwt = SignedJWT.parse(response.getBody());
         Map<String, Object> lote = asMap(jwt.getJWTClaimsSet().getClaim("LoTE"));

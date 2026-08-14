@@ -1,10 +1,13 @@
 package de.arbeitsagentur.opdt.walletsim.credentials;
 
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.disclosures;
+import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.issuerJwt;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.authlete.sd.Disclosure;
 import com.authlete.sd.SDObjectDecoder;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
+import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.io.ByteArrayInputStream;
@@ -35,10 +38,9 @@ class SdJwtIssuanceTest {
     void issuedSdJwtVerifiesAgainstEmbeddedCertificateChain() throws Exception {
         StoredCredential credential = anyPredefinedCredential();
 
-        String[] parts = credential.sdJwt().split("~");
-        SignedJWT issuerJwt = SignedJWT.parse(parts[0]);
+        SignedJWT issuerJwt = issuerJwt(credential.sdJwt());
 
-        List<com.nimbusds.jose.util.Base64> x5c = issuerJwt.getHeader().getX509CertChain();
+        List<Base64> x5c = issuerJwt.getHeader().getX509CertChain();
         assertThat(x5c).isNotEmpty();
         CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
         List<X509Certificate> chain = x5c.stream()
@@ -63,8 +65,7 @@ class SdJwtIssuanceTest {
     void issuedSdJwtCarriesVctHolderKeyStatusAndValidDisclosures() throws Exception {
         StoredCredential credential = anyPredefinedCredential();
 
-        String[] parts = credential.sdJwt().split("~");
-        SignedJWT issuerJwt = SignedJWT.parse(parts[0]);
+        SignedJWT issuerJwt = issuerJwt(credential.sdJwt());
         Map<String, Object> claims = issuerJwt.getJWTClaimsSet().getClaims();
 
         assertThat(issuerJwt.getHeader().getType().toString()).isEqualTo("dc+sd-jwt");
@@ -77,18 +78,45 @@ class SdJwtIssuanceTest {
 
         Map<String, Object> status = asMap(claims.get("status"));
         Map<String, Object> statusList = asMap(status.get("status_list"));
-        assertThat(statusList.get("uri")).asString().endsWith("/status-list");
+        assertThat(statusList.get("uri")).asString().endsWith("/api/status-list");
         assertThat(((Number) statusList.get("idx")).intValue()).isGreaterThanOrEqualTo(0);
 
         // all disclosures decode back to the original claims, including nested structures
-        List<Disclosure> disclosures = new ArrayList<>();
-        for (int i = 1; i < parts.length; i++) {
-            disclosures.add(Disclosure.parse(parts[i]));
-        }
-        Map<String, Object> decoded = new SDObjectDecoder().decode(claims, disclosures);
+        Map<String, Object> decoded = new SDObjectDecoder().decode(claims, disclosures(credential.sdJwt()));
         assertThat(decoded.get("family_name")).isEqualTo("Neumann");
         assertThat(asMap(decoded.get("address")).get("locality")).isEqualTo("Berlin");
         assertThat((List<?>) decoded.get("nationalities")).isEqualTo(List.of("DE"));
+    }
+
+    @Test
+    void hashAlgorithmClaimAppearsOnlyAtTheTopLevel() throws Exception {
+        StoredCredential credential = anyPredefinedCredential();
+
+        Map<String, Object> claims =
+                issuerJwt(credential.sdJwt()).getJWTClaimsSet().getClaims();
+        assertThat(claims).containsEntry("_sd_alg", "sha-256");
+
+        // RFC 9901 §4.1.1: _sd_alg must not be used in any object nested within the payload
+        for (Disclosure disclosure : disclosures(credential.sdJwt())) {
+            assertThat(nestedHashAlgorithmClaims(disclosure.getClaimValue()))
+                    .as("disclosure of %s carries no nested _sd_alg", disclosure.getClaimName())
+                    .isEmpty();
+        }
+    }
+
+    private static List<String> nestedHashAlgorithmClaims(Object node) {
+        List<String> found = new ArrayList<>();
+        if (node instanceof Map<?, ?> map) {
+            map.forEach((key, value) -> {
+                if ("_sd_alg".equals(key)) {
+                    found.add(String.valueOf(value));
+                }
+                found.addAll(nestedHashAlgorithmClaims(value));
+            });
+        } else if (node instanceof List<?> list) {
+            list.forEach(element -> found.addAll(nestedHashAlgorithmClaims(element)));
+        }
+        return found;
     }
 
     private StoredCredential anyPredefinedCredential() {
