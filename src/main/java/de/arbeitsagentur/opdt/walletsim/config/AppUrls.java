@@ -20,4 +20,12 @@ public class AppUrls {
     public String statusListUri() {
         return baseUrl + "/status-list";
     }
+
+    public String credentialsTrustListUri() {
+        return baseUrl + "/trust-lists/credentials";
+    }
+
+    public String walletProvidersTrustListUri() {
+        return baseUrl + "/trust-lists/wallet-providers";
+    }
 }

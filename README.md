@@ -81,8 +81,9 @@ with `alwaysDisclosedClaims`.
 
 During a verification the picker shows one selection group per requested DCQL credential query.
 The evaluation covers vct and claim matching, claim_sets in preference order, credential_sets
-combinations and trusted_authorities (aki and etsi_tl). Credentials that do not match are not
-offered. The answer is a multi entry vp_token when several queries are requested.
+combinations and trusted_authorities (aki and etsi_tl). A trusted authority that points at one of
+the wallet's own trust lists is resolved locally, which keeps split host names between verifier
+and wallet from breaking the match. Credentials that do not match are not offered. The answer is a multi entry vp_token when several queries are requested.
 When the verifier accepts alternatives, you choose the outcome instead of the wallet deciding.
 Credential set options are offered as a choice, optional sets can be skipped, and every
 satisfiable claim set of a query is listed for selection.

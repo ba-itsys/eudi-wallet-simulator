@@ -3,7 +3,10 @@ package de.arbeitsagentur.opdt.walletsim.oid4vp;
 import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
+import de.arbeitsagentur.opdt.walletsim.config.AppUrls;
 import de.arbeitsagentur.opdt.walletsim.credentials.StoredCredential;
+import de.arbeitsagentur.opdt.walletsim.trustlist.TrustListProfile;
+import de.arbeitsagentur.opdt.walletsim.trustlist.TrustListService;
 import java.io.ByteArrayInputStream;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -30,6 +33,13 @@ public class TrustedAuthorityMatcher {
 
     private final RestClient restClient = RestClient.create();
     private final Map<String, List<X509Certificate>> trustListCache = new ConcurrentHashMap<>();
+    private final AppUrls urls;
+    private final TrustListService trustListService;
+
+    public TrustedAuthorityMatcher(AppUrls urls, TrustListService trustListService) {
+        this.urls = urls;
+        this.trustListService = trustListService;
+    }
 
     public boolean matches(StoredCredential credential, List<TrustedAuthority> trustedAuthorities) {
         if (trustedAuthorities.isEmpty()) {
@@ -100,6 +110,12 @@ public class TrustedAuthorityMatcher {
 
     private List<X509Certificate> fetchTrustListCertificates(String trustListUrl) {
         try {
+            // the wallet's own lists are read directly, the advertised host name usually only
+            // resolves for the verifier
+            TrustListProfile ownProfile = ownTrustList(trustListUrl);
+            if (ownProfile != null) {
+                return parseTrustListCertificates(trustListService.trustListJwt(ownProfile));
+            }
             String jwt = restClient
                     .get()
                     .uri(trustListUrl)
@@ -111,6 +127,16 @@ public class TrustedAuthorityMatcher {
             LOG.warn("Failed to fetch trust list {}: {}", trustListUrl, e.getMessage());
             return List.of();
         }
+    }
+
+    private TrustListProfile ownTrustList(String trustListUrl) {
+        if (trustListUrl.equals(urls.credentialsTrustListUri())) {
+            return TrustListProfile.CREDENTIALS;
+        }
+        if (trustListUrl.equals(urls.walletProvidersTrustListUri())) {
+            return TrustListProfile.WALLET_PROVIDERS;
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")
