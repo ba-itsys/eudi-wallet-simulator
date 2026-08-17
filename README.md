@@ -155,6 +155,7 @@ same form values directly. `examples/keycloak/smoke-test.sh` drives the whole lo
 | `app.base-url` | `http://localhost:8080` | External base URL embedded in issued tokens |
 | `app.mode` | `debug` | `debug` warns and continues. `strict` refuses non conformant requests |
 | `app.pki.dir` | `data/pki` | PEM directory for the persisted CA, issuer, wallet provider and registrar keys |
+| `app.pki.seed` | *(empty)* | Derives all key material from this value in memory instead of persisting it. See below |
 | `app.resources.credentials` | `classpath:credentials.yml` | Pre defined credential seed. Any Spring resource works, for example `file:my-credentials.yml` |
 | `app.basepath` | *(empty)* | URL prefix when deployed behind a path rewriting ingress |
 | `server.port` | `8080` | HTTP port |
@@ -169,6 +170,34 @@ material persists, see below.
 On startup the simulator loads its PKI from `app.pki.dir`. Missing files are generated and
 written there, so the first start creates everything and later starts reuse it. Trust lists and
 registration certificates stay valid across restarts as long as the directory content is kept.
+
+With `app.pki.seed` set, the PKI is instead derived from the seed in memory on every start.
+Nothing is read or written, so the simulator runs on a read only filesystem without any volume.
+The same seed always yields byte identical keys and certificates, which makes a redeployed
+instance the PKI that verifiers already trust.
+
+Any non empty string works as the seed. The keys are derived from it with HKDF-SHA256, so the
+seed's entropy is all that protects them. Generate a long random value once, for example with
+`openssl rand -base64 32`, and keep it secret. Anyone who knows it can sign credentials that
+deployments using this seed anchor in their trust lists.
+
+```sh
+APP_PKI_SEED='m2BQ2mM1P4gEGCCkkytzOw1o+S8bhZteb1lT5kAGmYo=' java -jar target/wallet-simulator.jar
+```
+
+```yaml
+# deployment excerpt, no volumes needed
+containers:
+  - name: wallet-simulator
+    env:
+      - name: APP_PKI_SEED
+        valueFrom:
+          secretKeyRef:
+            name: wallet-simulator-pki-seed
+            key: seed
+```
+
+Without a seed, the file based layout below applies.
 
 The directory contains PEM files for five key pairs. `<name>` is one of `ca`, `issuer`,
 `wallet-provider`, `registrar` and `holder`.
