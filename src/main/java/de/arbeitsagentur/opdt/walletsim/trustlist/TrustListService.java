@@ -81,7 +81,6 @@ public class TrustListService {
     private List<X509Certificate> serviceCertificates(TrustListProfile profile) {
         return switch (profile) {
             case CREDENTIALS -> List.of(pki.caCertificate(), pki.issuerCertificate());
-            case WALLET_PROVIDERS -> List.of(pki.caCertificate(), pki.walletProviderCertificate());
         };
     }
 

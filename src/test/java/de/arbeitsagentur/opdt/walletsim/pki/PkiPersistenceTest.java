@@ -27,12 +27,8 @@ class PkiPersistenceTest {
                 .isEqualTo(first.issuerCertificate().getEncoded());
         assertThat(second.registrarCertificate().getEncoded())
                 .isEqualTo(first.registrarCertificate().getEncoded());
-        assertThat(second.walletProviderCertificate().getEncoded())
-                .isEqualTo(first.walletProviderCertificate().getEncoded());
         assertThat(second.registrarPrivateKey().getEncoded())
                 .isEqualTo(first.registrarPrivateKey().getEncoded());
-        assertThat(second.holderKey().toECPrivateKey().getEncoded())
-                .isEqualTo(first.holderKey().toECPrivateKey().getEncoded());
     }
 
     @Test
@@ -42,7 +38,6 @@ class PkiPersistenceTest {
         assertThat(List.of(
                         pki.caCertificate().getSerialNumber(),
                         pki.issuerCertificate().getSerialNumber(),
-                        pki.walletProviderCertificate().getSerialNumber(),
                         pki.registrarCertificate().getSerialNumber()))
                 .as("certificates created in the same millisecond must not share a serial")
                 .doesNotHaveDuplicates();

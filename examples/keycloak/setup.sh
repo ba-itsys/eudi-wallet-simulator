@@ -5,7 +5,7 @@
 set -eu
 
 EXAMPLE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-EXTENSION_VERSION="${EXTENSION_VERSION:-0.8.0}"
+EXTENSION_VERSION="${EXTENSION_VERSION:-0.9.0}"
 EXTENSION_JAR="${EXAMPLE_DIR}/keycloak-extension-oid4vp.jar"
 EXTENSION_URL="https://repo1.maven.org/maven2/de/arbeitsagentur/opdt/keycloak-extension-oid4vp/${EXTENSION_VERSION}/keycloak-extension-oid4vp-${EXTENSION_VERSION}.jar"
 
@@ -13,6 +13,9 @@ if [ ! -f "$EXTENSION_JAR" ]; then
   echo "Downloading keycloak-extension-oid4vp ${EXTENSION_VERSION}..."
   curl -sfL "$EXTENSION_URL" -o "$EXTENSION_JAR" || {
     echo "Could not download ${EXTENSION_URL}" >&2
+    echo "If the release is not out yet, build the jar from a keycloak-extension-oid4vp checkout" >&2
+    echo "with 'mvn -pl core package -DskipTests' and copy core/target/keycloak-extension-oid4vp.jar" >&2
+    echo "next to this script." >&2
     exit 1
   }
 fi

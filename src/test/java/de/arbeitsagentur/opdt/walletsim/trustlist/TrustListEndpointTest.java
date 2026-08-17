@@ -66,19 +66,6 @@ class TrustListEndpointTest {
         assertThat(serviceCertificates(services, "/Revocation")).isNotEmpty();
     }
 
-    @Test
-    void walletProvidersTrustListUsesWalletProviderProfile() throws Exception {
-        ResponseEntity<String> response = fetch("/api/trust-lists/wallet-providers");
-
-        SignedJWT jwt = SignedJWT.parse(response.getBody());
-        Map<String, Object> lote = asMap(jwt.getJWTClaimsSet().getClaim("LoTE"));
-        Map<String, Object> schemeInfo = asMap(lote.get("ListAndSchemeInformation"));
-        assertThat(schemeInfo.get("LoTEType")).isEqualTo("http://uri.etsi.org/19602/LoTEType/EUWalletProvidersList");
-
-        List<Map<String, Object>> services = servicesOf(lote);
-        assertThat(serviceCertificates(services, "/Issuance")).isNotEmpty();
-    }
-
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> servicesOf(Map<String, Object> lote) {
         List<Map<String, Object>> entities = (List<Map<String, Object>>) lote.get("TrustedEntitiesList");

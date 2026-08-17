@@ -139,9 +139,6 @@ public class TrustedAuthorityMatcher {
         if (trustListUrl.equals(properties.credentialsTrustListUri())) {
             return TrustListProfile.CREDENTIALS;
         }
-        if (trustListUrl.equals(properties.walletProvidersTrustListUri())) {
-            return TrustListProfile.WALLET_PROVIDERS;
-        }
         return null;
     }
 

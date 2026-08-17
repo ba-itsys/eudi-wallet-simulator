@@ -22,8 +22,7 @@ A ready to run Keycloak verifier setup is in [`examples/keycloak`](examples/keyc
    `client_id` and `request_uri`. HAIP is mandatory here, so only the `x509_hash` client
    identifier prefix and the encrypted response mode `direct_post.jwt` are accepted.
 2. Configure the trust anchor. The verifier finds the credential issuers in the ETSI TS 119 602
-   trust list at `GET /api/trust-lists/credentials`. Wallet providers are listed at
-   `GET /api/trust-lists/wallet-providers`.
+   trust list at `GET /api/trust-lists/credentials`.
 3. Get a registration certificate. Every request must carry `verifier_info`. Call
    `GET /api/registration-certificates?client_id=x509_hash:…` and put the returned `verifierInfo`
    value into the verifier configuration. The registrar key is persisted. The certificate stays
@@ -158,9 +157,11 @@ same form values directly. `examples/keycloak/smoke-test.sh` drives the whole lo
 | `app.pki.seed` | *(empty)* | Derives all key material from this value in memory instead of persisting it. See below |
 | `app.resources.credentials` | `classpath:credentials.yml` | Pre defined credential seed. Any Spring resource works, for example `file:my-credentials.yml` |
 | `app.basepath` | *(empty)* | URL prefix when deployed behind a path rewriting ingress |
+| `app.env` | `localDEV` | Environment label shown in the navbar |
+| `app.web.title` | `EUDI Wallet Simulator` | Page title and navbar heading |
 | `server.port` | `8080` | HTTP port |
 
-Environment variable form: `APP_BASEURL`, `APP_MODE`, `SERVER_PORT`.
+Environment variable form: `APP_BASEURL`, `APP_MODE`, `APP_WEB_TITLE`, `SERVER_PORT`.
 
 Credentials, ad hoc changes and revocations are held in memory and reset on restart. The key
 material persists, see below.
@@ -199,18 +200,17 @@ containers:
 
 Without a seed, the file based layout below applies.
 
-The directory contains PEM files for five key pairs. `<name>` is one of `ca`, `issuer`,
-`wallet-provider`, `registrar` and `holder`.
+The directory contains PEM files for three key pairs. `<name>` is one of `ca`, `issuer` and
+`registrar`.
 
 | File | Content |
 |---|---|
 | `<name>-key.pem` | PKCS#8 private key (P-256) |
 | `<name>-pub.pem` | Public key |
-| `<name>-cert.pem` | X.509 certificate (all except `holder`, issued by the `ca`) |
+| `<name>-cert.pem` | X.509 certificate (issued by the `ca`) |
 
-`ca` is the trust anchor published in the trust lists. `issuer` signs credentials and the status
-list. `registrar` signs registration certificates. `wallet-provider` signs wallet attestations.
-`holder` is the wallet instance key used for attestation proof of possession.
+`ca` is the trust anchor published in the trust list. `issuer` signs credentials and the status
+list. `registrar` signs registration certificates.
 
 For Kubernetes, pre-supply the directory as a secret so the key material is stable from the
 first start on. Generate the files once by starting the simulator locally, then:
@@ -248,9 +248,8 @@ under `/credentials`.
 | `POST /api/credentials/{id}/status` `{"status": 1}` | Revoke with 1, reactivate with 0 |
 | `GET /api/credentials/{id}/status` | Current status list value |
 | `GET /api/status-list` | IETF Token Status List (`statuslist+jwt`) |
-| `GET /api/trust-lists/credentials`, `GET /api/trust-lists/wallet-providers` | ETSI TS 119 602 LoTE JWTs |
+| `GET /api/trust-lists/credentials` | ETSI TS 119 602 LoTE JWT |
 | `GET /api/registration-certificates?client_id=…&purpose=…` | Issues an `rc-wrp+jwt` and the matching `verifierInfo` value |
-| `GET /api/wallet-attestation?client_id=…&aud=…` | OAuth client attestation and PoP pair |
 | `GET /api/config` | Effective configuration, for example the conformance mode |
 
 ## Development

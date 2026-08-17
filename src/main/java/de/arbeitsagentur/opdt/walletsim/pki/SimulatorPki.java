@@ -59,20 +59,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * The simulator PKI: a P-256 CA (the trust anchor published via the trust lists) with leaf
- * certificates for credential issuance, the wallet provider, and the registrar, plus the holder
- * binding key. With {@code app.pki.seed} set, all material is derived from the seed in memory, so
- * every start yields byte identical keys and certificates without touching the filesystem.
+ * The simulator PKI: a P-256 CA (the trust anchor published via the trust list) with leaf
+ * certificates for credential issuance and the registrar. With {@code app.pki.seed} set, all
+ * material is derived from the seed in memory, so every start yields byte identical keys and
+ * certificates without touching the filesystem.
  * Without a seed, the material is persisted as PEM files under {@code app.pki.dir} and reloaded
- * on restart. Either way, trust lists and registration certificates stay valid across restarts.
+ * on restart. Either way, the trust list and registration certificates stay valid across restarts.
  */
 @Component
 public class SimulatorPki {
 
     private static final X500Name CA_NAME = new X500Name("CN=EUDI Wallet Simulator CA,O=EUDI Wallet Simulator");
     private static final X500Name ISSUER_NAME = new X500Name("CN=EUDI Wallet Simulator Issuer,O=EUDI Wallet Simulator");
-    private static final X500Name WALLET_PROVIDER_NAME =
-            new X500Name("CN=EUDI Wallet Simulator Wallet Provider,O=EUDI Wallet Simulator");
     private static final X500Name REGISTRAR_NAME =
             new X500Name("CN=EUDI Wallet Simulator Registrar,O=EUDI Wallet Simulator");
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -91,11 +89,8 @@ public class SimulatorPki {
     private final X509Certificate caCertificate;
     private final KeyPair issuerKeyPair;
     private final X509Certificate issuerCertificate;
-    private final KeyPair walletProviderKeyPair;
-    private final X509Certificate walletProviderCertificate;
     private final KeyPair registrarKeyPair;
     private final X509Certificate registrarCertificate;
-    private final ECKey holderKey;
 
     public SimulatorPki(@Value("${app.pki.dir}") Path pkiDir, @Value("${app.pki.seed:}") String seed) {
         try {
@@ -106,17 +101,9 @@ public class SimulatorPki {
                 this.issuerKeyPair = deriveKeyPair(seed, "issuer");
                 this.issuerCertificate = leafCertificate(
                         ISSUER_NAME, issuerKeyPair, caKeyPair, caCertificate, seededStamp(seed, "issuer"));
-                this.walletProviderKeyPair = deriveKeyPair(seed, "wallet-provider");
-                this.walletProviderCertificate = leafCertificate(
-                        WALLET_PROVIDER_NAME,
-                        walletProviderKeyPair,
-                        caKeyPair,
-                        caCertificate,
-                        seededStamp(seed, "wallet-provider"));
                 this.registrarKeyPair = deriveKeyPair(seed, "registrar");
                 this.registrarCertificate = leafCertificate(
                         REGISTRAR_NAME, registrarKeyPair, caKeyPair, caCertificate, seededStamp(seed, "registrar"));
-                this.holderKey = toEcKey(deriveKeyPair(seed, "holder"));
             } else {
                 Files.createDirectories(pkiDir);
                 this.caKeyPair = loadOrCreateKeyPair("ca");
@@ -125,21 +112,11 @@ public class SimulatorPki {
                 this.issuerCertificate = loadOrCreateCertificate(
                         "issuer",
                         () -> leafCertificate(ISSUER_NAME, issuerKeyPair, caKeyPair, caCertificate, randomLeafStamp()));
-                this.walletProviderKeyPair = loadOrCreateKeyPair("wallet-provider");
-                this.walletProviderCertificate = loadOrCreateCertificate(
-                        "wallet-provider",
-                        () -> leafCertificate(
-                                WALLET_PROVIDER_NAME,
-                                walletProviderKeyPair,
-                                caKeyPair,
-                                caCertificate,
-                                randomLeafStamp()));
                 this.registrarKeyPair = loadOrCreateKeyPair("registrar");
                 this.registrarCertificate = loadOrCreateCertificate(
                         "registrar",
                         () -> leafCertificate(
                                 REGISTRAR_NAME, registrarKeyPair, caKeyPair, caCertificate, randomLeafStamp()));
-                this.holderKey = toEcKey(loadOrCreateKeyPair("holder"));
             }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to initialize simulator PKI in " + pkiDir, e);
@@ -162,25 +139,12 @@ public class SimulatorPki {
         return caKeyPair.getPrivate();
     }
 
-    public X509Certificate walletProviderCertificate() {
-        return walletProviderCertificate;
-    }
-
-    public PrivateKey walletProviderPrivateKey() {
-        return walletProviderKeyPair.getPrivate();
-    }
-
     public X509Certificate registrarCertificate() {
         return registrarCertificate;
     }
 
     public PrivateKey registrarPrivateKey() {
         return registrarKeyPair.getPrivate();
-    }
-
-    // The persisted wallet-instance key, used for wallet attestations and their PoP JWTs.
-    public ECKey holderKey() {
-        return holderKey;
     }
 
     // Fresh P-256 binding key for a single credential (cnf.jwk); never persisted.
