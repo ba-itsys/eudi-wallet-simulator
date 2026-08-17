@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.1.0...v1.2.0) (2026-08-17)
+
+
+### Features
+
+* update the keycloak example to extension 0.9.1 with aki trusted authorities ([809b347](https://github.com/ba-itsys/eudi-wallet-simulator/commit/809b3472a214046228a9bc9a64e3e9f3e6fa7ad8))
+
+
+### Bug Fixes
+
+* keep the picker selection and the chosen alternative across the edit round trip ([1fcae06](https://github.com/ba-itsys/eudi-wallet-simulator/commit/1fcae0612c575b5778008cb2915f62269ae67c5e))
+
 ## [1.1.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.0.0...v1.1.0) (2026-08-17)
 
 
