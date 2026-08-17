@@ -1,8 +1,9 @@
 # Keycloak example
 
 Runs a real [keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp)
-verifier against this wallet simulator. The setup downloads release 0.8.0 of the extension from
-Maven Central, override it with EXTENSION_VERSION when running setup.sh.
+verifier against this wallet simulator. The setup downloads release 0.9.0 of the extension from
+Maven Central, override it with EXTENSION_VERSION when running setup.sh. A jar placed next to
+setup.sh is used as is, which is how a locally built snapshot goes in.
 
 ## Layout
 
@@ -38,22 +39,24 @@ health insurance credential, or the PID alone, and the picker lets you choose wh
 combinations to answer with. Both credential types are part of the simulator's default wallet
 content.
 
-Every credential query also carries a `trusted_authorities` entry of type `etsi_tl` pointing at
-the simulator's credentials trust list, so the wallet only offers credentials whose issuer is
-anchored there.
+Every credential query also carries `trusted_authorities` entries: `etsi_tl` pointing at the
+simulator's credentials trust list and `aki` with the key identifiers of its issuer certificates.
+The wallet therefore only offers credentials whose issuer is anchored there. The entries come
+from the `etsi-trust-list` identity provider, which advertises its trust domain on every
+credential it serves.
 
 The realm configures this verbatim in DCQL syntax on the `oid4vp` identity provider:
 
 ```json
 "credentialSets": "[{\"options\": [[\"pid\", \"ehic\"], [\"pid\"]]}]",
-"principalCredentialId": "pid",
-"trustedAuthoritiesMode": "etsi_tl"
+"principalAttributes": "pid:family_name"
 ```
 
-The mappers name their credential with `credential.id`, which is what the options refer to. Both
-need extension 0.8.0 or newer.
+The mappers name their credential with `credential.id`, which is what the options refer to.
+`principalAttributes` says which claim of which credential identifies the user, so the PID's
+`family_name` becomes the Keycloak username. Both settings need extension 0.9.0 or newer.
 
-Release 0.8.0 matches credential types exactly, so it refuses a credential whose vct only inherits
+The extension matches credential types exactly, so it refuses a credential whose vct only inherits
 from the requested one. Presenting Thomas or Erika for a query asking `urn:eudi:pid:1` therefore
 fails at the verifier, and the simulator shows the verifier's reason on its error page.
 

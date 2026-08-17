@@ -22,8 +22,4 @@ public record AppProperties(String baseUrl, String basepath, ValidationMode mode
     public String credentialsTrustListUri() {
         return baseUrl + "/api/trust-lists/credentials";
     }
-
-    public String walletProvidersTrustListUri() {
-        return baseUrl + "/api/trust-lists/wallet-providers";
-    }
 }

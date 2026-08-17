@@ -21,11 +21,6 @@ public class TrustListController {
         return trustList(TrustListProfile.CREDENTIALS);
     }
 
-    @GetMapping("/api/trust-lists/wallet-providers")
-    public ResponseEntity<String> walletProviders() {
-        return trustList(TrustListProfile.WALLET_PROVIDERS);
-    }
-
     private ResponseEntity<String> trustList(TrustListProfile profile) {
         return ResponseEntity.ok().contentType(APPLICATION_JWT).body(trustListService.trustListJwt(profile));
     }
