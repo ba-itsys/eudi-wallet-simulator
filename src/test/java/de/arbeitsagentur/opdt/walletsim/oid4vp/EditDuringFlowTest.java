@@ -7,6 +7,7 @@ import static de.arbeitsagentur.opdt.walletsim.WalletTestSupport.issuerJwt;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jwt.SignedJWT;
+import de.arbeitsagentur.opdt.walletsim.WalletTestSupport;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -135,6 +136,115 @@ class EditDuringFlowTest {
                     .as("the status list slot of the wallet credential is inherited")
                     .isEqualTo(0);
         }
+    }
+
+    private static final String SET_DCQL_QUERY =
+            """
+            {"credentials": [
+                {"id": "pid", "format": "dc+sd-jwt", "meta": {"vct_values": ["urn:eudi:pid:de:1"]},
+                 "claims": [{"path": ["family_name"]}]},
+                {"id": "ehic", "format": "dc+sd-jwt", "meta": {"vct_values": ["urn:eudi:ehic:1"]},
+                 "claims": [{"path": ["family_name"]}]}
+            ],
+            "credential_sets": [{"options": [["pid"], ["pid", "ehic"]]}]}
+            """;
+
+    // the picker state the user leaves behind when opening the editor for the ehic query
+    private static final String CARRIED_PICKER_STATE = "&editQueryId=ehic"
+            + "&setOption%5B0%5D=1"
+            + "&selection%5Bpid%5D=pid-erika-mustermann"
+            + "&selection%5Behic%5D=ehic-maria-neumann";
+
+    @Test
+    void editingKeepsTheChosenAlternativeAndTheSelectionsOfEveryOtherQuery() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(SET_DCQL_QUERY)) {
+            String picker = client(port)
+                    .get()
+                    .uri(WalletTestSupport.authorizeUri(port, verifier))
+                    .retrieve()
+                    .body(String.class);
+            String flowState = hiddenField(picker, "flowState");
+            assertThat(tagAt(picker, "data-query-ids=\"pid\""))
+                    .as("a fresh picker starts on the first alternative")
+                    .contains("selected");
+
+            ResponseEntity<String> editForm = client(port)
+                    .post()
+                    .uri("/authorize/edit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8) + CARRIED_PICKER_STATE)
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(editForm.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(editForm.getBody())
+                    .as("the editor carries the picker state as hidden fields")
+                    .contains("name=\"selection[pid]\" value=\"pid-erika-mustermann\"")
+                    .contains("name=\"setOption[0]\" value=\"1\"")
+                    .contains("name=\"editQueryId\"");
+
+            ResponseEntity<String> save = client(port)
+                    .post()
+                    .uri("/authorize/edit/save")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("id=ehic-maria-neumann&name="
+                            + URLEncoder.encode("EHIC Maria (edited)", StandardCharsets.UTF_8)
+                            + "&vct=" + URLEncoder.encode("urn:eudi:ehic:1", StandardCharsets.UTF_8)
+                            + "&validityDays=30"
+                            + "&claimValues%5Bfamily_name%5D=Edited-Neumann"
+                            + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
+                            + CARRIED_PICKER_STATE)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            assertThat(save.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(tagAt(save.getBody(), "data-query-ids=\"pid,ehic\""))
+                    .as("the chosen alternative stays chosen instead of falling back to the first")
+                    .contains("selected");
+            assertThat(tagAt(save.getBody(), "id=\"select-pid-pid-erika-mustermann\""))
+                    .as("the query that was not edited keeps its credential")
+                    .contains("checked");
+            assertThat(tagAt(save.getBody(), "id=\"select-pid-pid-thomas-bauer\""))
+                    .as("the credential the user did not pick stays unchecked")
+                    .doesNotContain("checked");
+            assertThat(tagAt(save.getBody(), "id=\"select-ehic-ehic-maria-neumann\""))
+                    .as("the issued credential answers the query it was created for")
+                    .contains("checked");
+        }
+    }
+
+    @Test
+    void goingBackFromTheEditorKeepsTheChosenAlternativeAndSelections() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(SET_DCQL_QUERY)) {
+            String flowState = hiddenField(
+                    client(port)
+                            .get()
+                            .uri(WalletTestSupport.authorizeUri(port, verifier))
+                            .retrieve()
+                            .body(String.class),
+                    "flowState");
+
+            ResponseEntity<String> picker = client(port)
+                    .post()
+                    .uri("/authorize/edit/cancel")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8) + CARRIED_PICKER_STATE)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(tagAt(picker.getBody(), "data-query-ids=\"pid,ehic\"")).contains("selected");
+            assertThat(tagAt(picker.getBody(), "id=\"select-pid-pid-erika-mustermann\""))
+                    .contains("checked");
+            assertThat(tagAt(picker.getBody(), "id=\"select-ehic-ehic-maria-neumann\""))
+                    .contains("checked");
+        }
+    }
+
+    // the whole tag a marker sits in, so an assertion sees only that input or option element
+    private static String tagAt(String html, String marker) {
+        int position = html.indexOf(marker);
+        assertThat(position).as("'%s' present", marker).isNotNegative();
+        return html.substring(html.lastIndexOf('<', position), html.indexOf('>', position) + 1);
     }
 
     @Test

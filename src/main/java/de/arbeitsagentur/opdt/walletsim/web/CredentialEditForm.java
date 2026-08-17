@@ -24,4 +24,14 @@ public class CredentialEditForm {
     private String flowState;
     private String singlePresentationCredential;
     private Integer statusIndex;
+    // the picker state during a presentation flow, carried so the selection page comes back as it
+    // was left, with the issued credential selected for the query it was created for
+    private String editQueryId;
+    private Map<String, String> selection = new LinkedHashMap<>();
+    private Map<String, String> setOption = new LinkedHashMap<>();
+    private Map<String, String> claimSet = new LinkedHashMap<>();
+
+    public PickerSelection pickerSelection() {
+        return new PickerSelection(selection, setOption, claimSet);
+    }
 }
