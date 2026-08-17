@@ -11,7 +11,8 @@
       "enabled": true,
       "config": {
         "trustListUrl": "http://host.docker.internal:8081/api/trust-lists/credentials",
-        "trustListLoTEType": "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList"
+        "trustListLoTEType": "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList",
+        "advertiseTrustedAuthorities": "aki"
       }
     },
     {
