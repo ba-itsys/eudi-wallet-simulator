@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.0.0...v1.1.0) (2026-08-17)
+
+
+### Features
+
+* derive the pki from a configured seed for stateless deployments ([fe2150d](https://github.com/ba-itsys/eudi-wallet-simulator/commit/fe2150d0abe50a614e41a9e565ce0bbb4d0b3c52))
+* update the keycloak example to extension 0.9.0 ([fdde421](https://github.com/ba-itsys/eudi-wallet-simulator/commit/fdde42171fb71226d01c4bda79979889d23e0fc9))
+
 ## 1.0.0 (2026-08-17)
 
 
