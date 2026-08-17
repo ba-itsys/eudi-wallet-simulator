@@ -5,7 +5,7 @@
 set -eu
 
 EXAMPLE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-EXTENSION_VERSION="${EXTENSION_VERSION:-0.9.0}"
+EXTENSION_VERSION="${EXTENSION_VERSION:-0.9.1}"
 EXTENSION_JAR="${EXAMPLE_DIR}/keycloak-extension-oid4vp.jar"
 EXTENSION_URL="https://repo1.maven.org/maven2/de/arbeitsagentur/opdt/keycloak-extension-oid4vp/${EXTENSION_VERSION}/keycloak-extension-oid4vp-${EXTENSION_VERSION}.jar"
 
@@ -23,7 +23,8 @@ fi
 SIMULATOR_URL="${SIMULATOR_URL:-http://localhost:8081}"
 if ! curl -sf "${SIMULATOR_URL}/livez" >/dev/null 2>&1; then
   echo "The wallet simulator must be running (it issues the registration certificate)." >&2
-  echo "Start it first: SERVER_PORT=8081 APP_BASEURL=http://host.docker.internal:8081 mvn spring-boot:run" >&2
+  echo "Start it first: SERVER_PORT=8081 APP_BASEURL=http://host.docker.internal:8081 \\" >&2
+  echo "  APP_PKI_SEED=wallet-simulator-keycloak-example mvn spring-boot:run" >&2
   exit 1
 fi
 
