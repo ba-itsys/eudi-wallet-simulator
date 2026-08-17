@@ -226,6 +226,10 @@ public class AuthorizeController {
                 .orElseGet(() -> editForms.cloneForSinglePresentation(walletCredential(templateId)));
         editForm.setFlowState(form.getFlowState());
         editForm.setSinglePresentationCredential(form.getSinglePresentationCredential());
+        editForm.setEditQueryId(editQueryId);
+        editForm.setSelection(form.getSelection());
+        editForm.setSetOption(form.getSetOption());
+        editForm.setClaimSet(form.getClaimSet());
         return editView(editForm, model);
     }
 
@@ -257,19 +261,33 @@ public class AuthorizeController {
             return editView(form, model);
         }
         LOG.info("Issued credential {} for this presentation only", credential.id());
-        model.addAttribute("preselectedCredentialId", credential.id());
         model.addAttribute("singlePresentationCredential", singlePresentationCredentials.serialize(credential));
-        return renderPicker(request, plan, model);
+        return renderPicker(request, plan, selectionWithIssuedCredential(form, plan, credential.id()), model);
+    }
+
+    // the issued credential becomes the pick of the query it was created for, every other query
+    // keeps the credential the user had chosen before the edit
+    private static PickerSelection selectionWithIssuedCredential(
+            CredentialEditForm form, PresentationPlan plan, String credentialId) {
+        List<String> answerableQueryIds = plan.slots().stream()
+                .filter(slot -> slot.matches().stream()
+                        .anyMatch(match -> match.credential().id().equals(credentialId)))
+                .map(QuerySlot::queryId)
+                .toList();
+        String editedQueryId = answerableQueryIds.stream()
+                .filter(queryId -> queryId.equals(form.getEditQueryId()))
+                .findFirst()
+                .orElseGet(answerableQueryIds::getFirst);
+        return form.pickerSelection().withCredential(editedQueryId, credentialId);
     }
 
     @PostMapping("/authorize/edit/cancel")
-    public String cancelEditDuringFlow(
-            @RequestParam("flowState") String flowState,
-            @RequestParam(name = "singlePresentationCredential", required = false) String encodedCredential,
-            Model model) {
-        AuthorizationRequest request = AuthorizationRequest.parse(flowState);
+    public String cancelEditDuringFlow(@ModelAttribute CredentialEditForm form, Model model) {
+        AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
+        String encodedCredential = form.getSinglePresentationCredential();
         model.addAttribute("singlePresentationCredential", encodedCredential);
-        return renderPicker(request, plan(request, singlePresentationCredential(encodedCredential)), model);
+        return renderPicker(
+                request, plan(request, singlePresentationCredential(encodedCredential)), form.pickerSelection(), model);
     }
 
     @PostMapping("/authorize/cancel")
@@ -317,15 +335,17 @@ public class AuthorizeController {
     }
 
     private String renderPicker(AuthorizationRequest request, Model model) {
-        return renderPicker(request, plan(request), model);
+        return renderPicker(request, plan(request), PickerSelection.empty(), model);
     }
 
-    private String renderPicker(AuthorizationRequest request, PresentationPlan plan, Model model) {
+    private String renderPicker(
+            AuthorizationRequest request, PresentationPlan plan, PickerSelection selection, Model model) {
         model.addAttribute("verifierClientId", request.clientId());
         model.addAttribute("slots", plan.slots());
         model.addAttribute("setChoices", plan.setChoices());
         model.addAttribute("satisfiable", plan.satisfiable());
         model.addAttribute("flowState", request.rawRequestObject());
+        model.addAttribute("selection", selection);
         return "presentation_select";
     }
 

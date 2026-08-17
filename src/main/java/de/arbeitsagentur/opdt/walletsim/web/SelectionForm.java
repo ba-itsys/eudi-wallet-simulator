@@ -21,4 +21,8 @@ public class SelectionForm {
     public Optional<String> firstSelectedCredentialId() {
         return selection.values().stream().filter(StringUtils::hasText).findFirst();
     }
+
+    public PickerSelection pickerSelection() {
+        return new PickerSelection(selection, setOption, claimSet);
+    }
 }

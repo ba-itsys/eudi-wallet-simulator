@@ -31,11 +31,13 @@
                 <select class="form-select" data-alternatives-select
                         data-th-id="'set-option-' + ${choice.index}"
                         data-th-name="'setOption[' + ${choice.index} + ']'">
-                    <option data-th-each="option : ${choice.options}"
+                    <option data-th-each="option, optionStat : ${choice.options}"
                             data-th-value="${option.index}"
                             data-th-attr="data-query-ids=${#strings.listJoin(option.queryIds, ',')}"
+                            data-th-selected="${selection.isSetOptionSelected(choice.index, option.index, optionStat.first)}"
                             data-th-text="'Present ' + ${option.label}">option</option>
-                    <option data-th-unless="${choice.required}" value="skip" data-query-ids="">
+                    <option data-th-unless="${choice.required}" value="skip" data-query-ids=""
+                            data-th-selected="${selection.isSetOptionSkipped(choice.index)}">
                         Do not present
                     </option>
                 </select>
@@ -52,8 +54,9 @@
                             data-th-attr="data-query-id=${slot.queryId}"
                             data-th-id="'claim-set-' + ${slot.queryId}"
                             data-th-name="'claimSet[' + ${slot.queryId} + ']'">
-                        <option data-th-each="option : ${slot.claimSetOptions}"
+                        <option data-th-each="option, optionStat : ${slot.claimSetOptions}"
                                 data-th-value="${option.index}"
+                                data-th-selected="${selection.isClaimSetSelected(slot.queryId, option.index, optionStat.first)}"
                                 data-th-text="${option.label}">claims</option>
                     </select>
                     <label data-th-for="'claim-set-' + ${slot.queryId}">Claim set to answer with</label>
@@ -67,9 +70,7 @@
                                    data-th-name="'selection[' + ${slot.queryId} + ']'"
                                    data-th-id="'select-' + ${slot.queryId} + '-' + ${match.credential.id}"
                                    data-th-value="${match.credential.id}"
-                                   data-th-checked="${preselectedCredentialId != null}
-                                       ? ${match.credential.id == preselectedCredentialId}
-                                       : ${iterStat.first}"/>
+                                   data-th-checked="${selection.isCredentialSelected(slot.queryId, match.credential.id, iterStat.first)}"/>
                             <label class="form-check-label w-100"
                                    data-th-for="'select-' + ${slot.queryId} + '-' + ${match.credential.id}">
                                 <strong data-th-text="${match.credential.name}">Credential</strong>
