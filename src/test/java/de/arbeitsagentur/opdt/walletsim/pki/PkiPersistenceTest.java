@@ -18,8 +18,8 @@ class PkiPersistenceTest {
 
     @Test
     void reloadsIdenticalKeysAndCertificatesFromDisk() throws Exception {
-        SimulatorPki first = new SimulatorPki(pkiDir);
-        SimulatorPki second = new SimulatorPki(pkiDir);
+        SimulatorPki first = new SimulatorPki(pkiDir, "");
+        SimulatorPki second = new SimulatorPki(pkiDir, "");
 
         assertThat(second.caCertificate().getEncoded())
                 .isEqualTo(first.caCertificate().getEncoded());
@@ -37,7 +37,7 @@ class PkiPersistenceTest {
 
     @Test
     void certificatesOfOneIssuerGetDistinctSerialNumbers(@TempDir Path freshDir) {
-        SimulatorPki pki = new SimulatorPki(freshDir);
+        SimulatorPki pki = new SimulatorPki(freshDir, "");
 
         assertThat(List.of(
                         pki.caCertificate().getSerialNumber(),

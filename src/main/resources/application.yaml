@@ -33,6 +33,7 @@ app:
   mode: "debug"
   pki:
     dir: "data/pki"
+    seed:
   env: "localDEV"
   web:
     title: "EUDI Wallet Simulator"
