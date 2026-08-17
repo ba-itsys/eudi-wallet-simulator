@@ -17,19 +17,20 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 /**
- * Registrar for relying-party registration certificates (EUDI): issues rc-rp+jwt tokens
- * signed with the persisted registrar key and validates presented ones against exactly that key,
- * so certificates generated here remain accepted across restarts.
+ * Registrar for relying-party registration certificates (EUDI): issues rc-wrp+jwt tokens
+ * (ETSI TS 119 475) signed with the persisted registrar key and validates presented ones against
+ * exactly that key, so certificates generated here remain accepted across restarts.
  */
 @Service
 public class RegistrationCertificateService {
 
-    public static final String REGISTRATION_CERTIFICATE_TYP = "rc-rp+jwt";
+    public static final String REGISTRATION_CERTIFICATE_TYP = "rc-wrp+jwt";
 
     private static final long VALIDITY_DAYS = 365;
 
@@ -53,7 +54,8 @@ public class RegistrationCertificateService {
                     .expirationTime(Date.from(now.plus(VALIDITY_DAYS, ChronoUnit.DAYS)))
                     .claim("status", "active");
             if (StringUtils.hasText(purpose)) {
-                claims.claim("purpose", purpose);
+                // ETSI TS 119 475 localizes purpose as an array of {lang, value} entries
+                claims.claim("purpose", List.of(Map.of("lang", "en", "value", purpose)));
             }
             SignedJWT jwt = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.ES256)
@@ -71,9 +73,11 @@ public class RegistrationCertificateService {
 
     /**
      * Validates a presented registration certificate; returns the violation, or empty when the
-     * certificate is one this registrar accepts for the given client_id.
+     * certificate is one this registrar accepts. The sub claim is the registered legal-entity
+     * identifier (ETSI TS 119 475), not the OpenID4VP client_id, so it is deliberately not
+     * compared against the request.
      */
-    public Optional<String> validate(String registrationCertificateJwt, String expectedClientId) {
+    public Optional<String> validate(String registrationCertificateJwt) {
         SignedJWT jwt;
         try {
             jwt = SignedJWT.parse(registrationCertificateJwt);
@@ -92,10 +96,6 @@ public class RegistrationCertificateService {
                 return Optional.of("registration certificate is not signed by this wallet's registrar");
             }
             JWTClaimsSet claims = jwt.getJWTClaimsSet();
-            if (expectedClientId != null && !expectedClientId.equals(claims.getSubject())) {
-                return Optional.of("registration certificate sub ('" + claims.getSubject()
-                        + "') does not match the request client_id ('" + expectedClientId + "')");
-            }
             if (claims.getExpirationTime() == null
                     || claims.getExpirationTime().toInstant().isBefore(Instant.now())) {
                 return Optional.of("registration certificate is expired");

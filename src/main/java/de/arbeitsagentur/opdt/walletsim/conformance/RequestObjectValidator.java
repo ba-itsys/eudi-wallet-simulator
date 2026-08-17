@@ -62,7 +62,7 @@ public class RequestObjectValidator {
         validateResponseMode(request, findings);
         validateClientIdPrefix(jwt, request, findings);
         validateDcqlStructure(request, findings);
-        validateVerifierInfo(jwt, request, findings);
+        validateVerifierInfo(jwt, findings);
         validateRequestObjectClaims(jwt, findings);
         validateClientMetadata(request, findings);
         return findings;
@@ -109,7 +109,7 @@ public class RequestObjectValidator {
         }
     }
 
-    private void validateVerifierInfo(SignedJWT jwt, AuthorizationRequest request, List<Finding> findings) {
+    private void validateVerifierInfo(SignedJWT jwt, List<Finding> findings) {
         Object verifierInfo;
         try {
             verifierInfo = jwt.getJWTClaimsSet().getClaim("verifier_info");
@@ -128,19 +128,19 @@ public class RequestObjectValidator {
         }
         for (Object entry : attestations) {
             if (!(entry instanceof Map<?, ?> attestation)
-                    || !("registrar_dataset".equals(attestation.get("format")))
+                    || !("registration_cert".equals(attestation.get("format")))
                     || !(attestation.get("data") instanceof String data)) {
-                findings.add(new Finding("Every verifier_info entry needs format 'registrar_dataset' and string"
-                        + " 'data' (IR (EU) 2024/2977, OID4VP 1.0 §5.1)"));
+                findings.add(new Finding("Every verifier_info entry needs format 'registration_cert' and string"
+                        + " 'data' (ETSI TS 119 472-2, OID4VP 1.0 §5.1)"));
                 continue;
             }
             if (attestation.get("credential_ids") != null) {
                 findings.add(
                         new Finding(
-                                "The registrar_dataset verifier_info entry must not contain credential_ids (IR (EU) 2024/2977)"));
+                                "The registration_cert verifier_info entry must not contain credential_ids (IR (EU) 2024/2977)"));
             }
             registrationCertificates
-                    .validate(decodeRegistrationCertificate(data), request.clientId())
+                    .validate(decodeRegistrationCertificate(data))
                     .ifPresent(violation -> findings.add(new Finding("verifier_info: " + violation)));
         }
     }

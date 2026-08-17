@@ -42,14 +42,14 @@ curl "http://localhost:8080/api/registration-certificates?client_id=x509_hash:${
 The response contains the raw certificate and the ready to paste `verifierInfo` value. The
 `verifierInfo` member is a JSON array serialized into a string because verifier configuration
 fields usually take text. In the request object the claim is the plain array
-`[{"format": "registrar_dataset", "data": "…"}]` as required by the amendment to
-IR (EU) 2024/2977. The data member is the base64url encoding of the signed registration
-certificate:
+`[{"format": "registration_cert", "data": "…"}]` as defined by ETSI TS 119 472-2. The data
+member is the base64url encoding of the signed registration certificate (an `rc-wrp+jwt` per
+ETSI TS 119 475):
 
 ```json
 {
-  "registrationCertificate": "eyJ0eXAiOiJyYy1ycCtqd3QiLCJ4NWMiOlsi...",
-  "verifierInfo": "[{\"format\":\"registrar_dataset\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxeWND...\"}]"
+  "registrationCertificate": "eyJ0eXAiOiJyYy13cnArand0IiwieDVjIjpbIi...",
+  "verifierInfo": "[{\"format\":\"registration_cert\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxM2Nu...\"}]"
 }
 ```
 
@@ -61,7 +61,7 @@ configuration:
   "alias": "oid4vp",
   "providerId": "oid4vp",
   "config": {
-    "verifierInfo": "[{\"format\":\"registrar_dataset\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxeWND...\"}]"
+    "verifierInfo": "[{\"format\":\"registration_cert\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxM2Nu...\"}]"
   }
 }
 ```
@@ -220,7 +220,7 @@ under `/credentials`.
 | `GET /api/credentials/{id}/status` | Current status list value |
 | `GET /api/status-list` | IETF Token Status List (`statuslist+jwt`) |
 | `GET /api/trust-lists/credentials`, `GET /api/trust-lists/wallet-providers` | ETSI TS 119 602 LoTE JWTs |
-| `GET /api/registration-certificates?client_id=…&purpose=…` | Issues an `rc-rp+jwt` and the matching `verifierInfo` value |
+| `GET /api/registration-certificates?client_id=…&purpose=…` | Issues an `rc-wrp+jwt` and the matching `verifierInfo` value |
 | `GET /api/wallet-attestation?client_id=…&aud=…` | OAuth client attestation and PoP pair |
 | `GET /api/config` | Effective configuration, for example the conformance mode |
 
