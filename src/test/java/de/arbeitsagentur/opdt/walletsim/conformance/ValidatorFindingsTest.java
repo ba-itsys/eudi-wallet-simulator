@@ -167,7 +167,7 @@ class ValidatorFindingsTest {
         String data =
                 Base64URL.encode("not-a-jwt".getBytes(StandardCharsets.UTF_8)).toString();
         try (TestVerifier verifier = TestVerifier.pidVerifier()
-                .withVerifierInfo("[{\"format\":\"registrar_dataset\",\"data\":\"" + data + "\"}]")) {
+                .withVerifierInfo("[{\"format\":\"registration_cert\",\"data\":\"" + data + "\"}]")) {
             assertThat(picker(verifier)).contains("not a valid JWT");
         }
     }
@@ -177,7 +177,7 @@ class ValidatorFindingsTest {
         ECKey foreignKey = new ECKeyGenerator(Curve.P_256).generate();
         SignedJWT foreignCertificate = new SignedJWT(
                 new JWSHeader.Builder(JWSAlgorithm.ES256)
-                        .type(new JOSEObjectType("rc-rp+jwt"))
+                        .type(new JOSEObjectType("rc-wrp+jwt"))
                         .build(),
                 new JWTClaimsSet.Builder()
                         .subject("x509_hash:whatever")
@@ -187,7 +187,7 @@ class ValidatorFindingsTest {
         String data = Base64URL.encode(foreignCertificate.serialize().getBytes(StandardCharsets.UTF_8))
                 .toString();
         try (TestVerifier verifier = TestVerifier.pidVerifier()
-                .withVerifierInfo("[{\"format\":\"registrar_dataset\",\"data\":\"" + data + "\"}]")) {
+                .withVerifierInfo("[{\"format\":\"registration_cert\",\"data\":\"" + data + "\"}]")) {
             assertThat(picker(verifier)).contains("not signed by this wallet");
         }
     }

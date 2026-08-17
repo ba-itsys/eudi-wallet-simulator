@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Issues relying-party registration certificates. The response contains the raw rc-rp+jwt and the
+ * Issues relying-party registration certificates. The response contains the raw rc-wrp+jwt and the
  * ready-to-paste value for a verifier's verifier_info configuration.
  */
 @RestController
@@ -31,11 +31,11 @@ public class RegistrationCertificateApiController {
             @RequestParam("client_id") String clientId,
             @RequestParam(name = "purpose", required = false) String purpose) {
         String jwt = registrationCertificates.issue(clientId, purpose);
-        // IR (EU) 2024/2977 amendment: format registrar_dataset, data base64url of the signed
+        // ETSI TS 119 472-2: format registration_cert, data base64url of the signed
         // registration certificate, no credential_ids
         String data = Base64URL.encode(jwt.getBytes(StandardCharsets.UTF_8)).toString();
         String verifierInfo =
-                objectMapper.writeValueAsString(List.of(Map.of("format", "registrar_dataset", "data", data)));
+                objectMapper.writeValueAsString(List.of(Map.of("format", "registration_cert", "data", data)));
         return Map.of("registrationCertificate", jwt, "verifierInfo", verifierInfo);
     }
 }

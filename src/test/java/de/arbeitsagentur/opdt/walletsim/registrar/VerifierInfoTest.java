@@ -9,6 +9,7 @@ import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.TestVerifier;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
 import java.security.interfaces.ECPublicKey;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,8 +20,8 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * EUDI: verifier_info must carry a registration certificate this wallet's registrar
- * accepts. The registrar issues rc-rp+jwt certificates via the API; requests without or with
- * foreign registration certificates get conformance findings.
+ * accepts. The registrar issues rc-wrp+jwt certificates (ETSI TS 119 475) via the API; requests
+ * without or with foreign registration certificates get conformance findings.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class VerifierInfoTest {
@@ -40,14 +41,15 @@ class VerifierInfoTest {
                 .body(JsonNode.class);
 
         SignedJWT jwt = SignedJWT.parse(response.get("registrationCertificate").asText());
-        assertThat(jwt.getHeader().getType().toString()).isEqualTo("rc-rp+jwt");
+        assertThat(jwt.getHeader().getType().toString()).isEqualTo("rc-wrp+jwt");
         assertThat(jwt.verify(new ECDSAVerifier(
                         (ECPublicKey) pki.registrarCertificate().getPublicKey())))
                 .isTrue();
         assertThat(jwt.getJWTClaimsSet().getSubject()).isEqualTo("x509_san_dns:verifier.example.com");
-        assertThat(jwt.getJWTClaimsSet().getStringClaim("purpose")).isEqualTo("Login");
+        assertThat(jwt.getJWTClaimsSet().getListClaim("purpose"))
+                .containsExactly(Map.of("lang", "en", "value", "Login"));
 
-        assertThat(response.get("verifierInfo").asText()).contains("\"format\":\"registrar_dataset\"");
+        assertThat(response.get("verifierInfo").asText()).contains("\"format\":\"registration_cert\"");
     }
 
     @Test
@@ -90,11 +92,15 @@ class VerifierInfoTest {
         }
     }
 
+    /**
+     * ETSI TS 119 475: sub is the registered legal-entity identifier, not the OpenID4VP
+     * client_id, so a certificate whose sub differs from the request client_id is still accepted.
+     */
     @Test
-    void registrationCertificateForOtherClientIsAFinding() throws Exception {
+    void registrationCertificateWithForeignSubIsAccepted() throws Exception {
         String verifierInfo = client(port)
                 .get()
-                .uri("/api/registration-certificates?client_id=x509_san_dns:someone-else.example.com")
+                .uri("/api/registration-certificates?client_id=LEIEU-987654321")
                 .retrieve()
                 .body(JsonNode.class)
                 .get("verifierInfo")
@@ -107,7 +113,8 @@ class VerifierInfoTest {
                     .retrieve()
                     .toEntity(String.class);
 
-            assertThat(picker.getBody()).contains("does not match the request client_id");
+            assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(picker.getBody()).doesNotContain("verifier_info");
         }
     }
 }
