@@ -131,7 +131,7 @@ public class AuthorizeController {
     @PostMapping("/authorize/submit")
     public String submit(@ModelAttribute SelectionForm form, Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
-        PresentationPlan plan = plan(request, singlePresentationCredential(form.getSinglePresentationCredential()));
+        PresentationPlan plan = plan(request, carriedCredentials(form.getSinglePresentationCredentials()));
         Set<String> requestedQueryIds = requestedQueryIds(plan, form);
         Map<String, String> presentations = new LinkedHashMap<>();
         Map<String, String> selectedCredentials = new LinkedHashMap<>();
@@ -163,9 +163,16 @@ public class AuthorizeController {
         return complete(result, model);
     }
 
-    // the credential a flow carries in its hidden field, as the extra candidate for the plan
-    private List<StoredCredential> singlePresentationCredential(String encoded) {
-        return singlePresentationCredentials.deserialize(encoded).map(List::of).orElseGet(List::of);
+    // the credentials a flow carries in its hidden field, as the extra candidates for the plan.
+    // An unreadable value is a broken flow, not a server fault, so the request is answered with
+    // the flow's error page. No cause is attached because the error page would show its message
+    // as the verifier's words
+    private List<StoredCredential> carriedCredentials(String encoded) {
+        try {
+            return singlePresentationCredentials.deserialize(encoded);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidRequestException("The credentials this flow carries cannot be read");
+        }
     }
 
     private StoredCredential walletCredential(String credentialId) {
@@ -219,13 +226,13 @@ public class AuthorizeController {
         String templateId = firstNonBlank(selectedForQuery, credentialId)
                 .or(form::firstSelectedCredentialId)
                 .orElseThrow(() -> new InvalidRequestException("No credential selected for editing"));
-        CredentialEditForm editForm = singlePresentationCredential(form.getSinglePresentationCredential()).stream()
+        CredentialEditForm editForm = carriedCredentials(form.getSinglePresentationCredentials()).stream()
                 .filter(credential -> credential.id().equals(templateId))
                 .findFirst()
                 .map(editForms::cloneForSinglePresentation)
                 .orElseGet(() -> editForms.cloneForSinglePresentation(walletCredential(templateId)));
         editForm.setFlowState(form.getFlowState());
-        editForm.setSinglePresentationCredential(form.getSinglePresentationCredential());
+        editForm.setSinglePresentationCredentials(form.getSinglePresentationCredentials());
         editForm.setEditQueryId(editQueryId);
         editForm.setSelection(form.getSelection());
         editForm.setSetOption(form.getSetOption());
@@ -250,7 +257,11 @@ public class AuthorizeController {
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
         StoredCredential credential =
                 credentialService.issueForSinglePresentation(editForms.toDefinition(form), form.getStatusIndex());
-        PresentationPlan plan = plan(request, List.of(credential));
+        // each requested query can be answered with its own edited credential, so the new one
+        // joins those the flow already carries instead of replacing all of them
+        List<StoredCredential> carried = singlePresentationCredentials.replacing(
+                carriedCredentials(form.getSinglePresentationCredentials()), credential);
+        PresentationPlan plan = plan(request, carried);
         boolean matchesAnyQuery = plan.slots().stream()
                 .flatMap(slot -> slot.matches().stream())
                 .anyMatch(match -> match.credential().id().equals(credential.id()));
@@ -261,7 +272,7 @@ public class AuthorizeController {
             return editView(form, model);
         }
         LOG.info("Issued credential {} for this presentation only", credential.id());
-        model.addAttribute("singlePresentationCredential", singlePresentationCredentials.serialize(credential));
+        model.addAttribute("singlePresentationCredentials", singlePresentationCredentials.serialize(carried));
         return renderPicker(request, plan, selectionWithIssuedCredential(form, plan, credential.id()), model);
     }
 
@@ -284,10 +295,10 @@ public class AuthorizeController {
     @PostMapping("/authorize/edit/cancel")
     public String cancelEditDuringFlow(@ModelAttribute CredentialEditForm form, Model model) {
         AuthorizationRequest request = AuthorizationRequest.parse(form.getFlowState());
-        String encodedCredential = form.getSinglePresentationCredential();
-        model.addAttribute("singlePresentationCredential", encodedCredential);
+        String encodedCredentials = form.getSinglePresentationCredentials();
+        model.addAttribute("singlePresentationCredentials", encodedCredentials);
         return renderPicker(
-                request, plan(request, singlePresentationCredential(encodedCredential)), form.pickerSelection(), model);
+                request, plan(request, carriedCredentials(encodedCredentials)), form.pickerSelection(), model);
     }
 
     @PostMapping("/authorize/cancel")
@@ -363,7 +374,7 @@ public class AuthorizeController {
 
     private String editView(CredentialEditForm form, Model model) {
         model.addAttribute("form", form);
-        model.addAttribute("singlePresentationCredential", form.getSinglePresentationCredential());
+        model.addAttribute("singlePresentationCredentials", form.getSinglePresentationCredentials());
         model.addAttribute("formAction", properties.basepath() + "/authorize/edit/save");
         return "credential_edit";
     }

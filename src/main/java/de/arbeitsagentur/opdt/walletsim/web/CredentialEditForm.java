@@ -22,7 +22,7 @@ public class CredentialEditForm {
     private String newClaimName;
     private String newClaimValue;
     private String flowState;
-    private String singlePresentationCredential;
+    private String singlePresentationCredentials;
     private Integer statusIndex;
     // the picker state during a presentation flow, carried so the selection page comes back as it
     // was left, with the issued credential selected for the query it was created for
