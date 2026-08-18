@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.1](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.0...v1.2.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* carry the registration certificate as a compact jwt in verifier_info ([a198254](https://github.com/ba-itsys/eudi-wallet-simulator/commit/a198254ad7670667f5bda5892c5e42a71eabaa2a))
+* keep every credential edited during a presentation flow ([8cc1a6c](https://github.com/ba-itsys/eudi-wallet-simulator/commit/8cc1a6c8495540a46f9dd7cb1cb635408719485d))
+
+
+### Documentation
+
+* cover trust scoping, structured claims and login timeouts in the example ([ec9de68](https://github.com/ba-itsys/eudi-wallet-simulator/commit/ec9de68374b36813e60d0a133efec7452589ba50))
+
 ## [1.2.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.1.0...v1.2.0) (2026-08-17)
 
 
