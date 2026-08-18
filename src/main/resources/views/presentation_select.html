@@ -19,7 +19,7 @@
 
     <form method="post" data-th-action="@{__${basepath}__/authorize/submit}">
         <input type="hidden" name="flowState" data-th-value="${flowState}"/>
-        <input type="hidden" data-th-if="${singlePresentationCredential}" name="singlePresentationCredential" data-th-value="${singlePresentationCredential}"/>
+        <input type="hidden" data-th-if="${singlePresentationCredentials}" name="singlePresentationCredentials" data-th-value="${singlePresentationCredentials}"/>
 
         <div class="alert alert-warning" data-th-unless="${satisfiable}">
             No credential in this wallet matches the verifier's query.

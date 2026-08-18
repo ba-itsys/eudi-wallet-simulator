@@ -16,7 +16,7 @@ public class SelectionForm {
     private Map<String, String> setOption = new LinkedHashMap<>();
     private Map<String, String> claimSet = new LinkedHashMap<>();
     private String flowState;
-    private String singlePresentationCredential;
+    private String singlePresentationCredentials;
 
     public Optional<String> firstSelectedCredentialId() {
         return selection.values().stream().filter(StringUtils::hasText).findFirst();

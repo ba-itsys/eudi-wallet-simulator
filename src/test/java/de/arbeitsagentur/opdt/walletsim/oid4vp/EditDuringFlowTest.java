@@ -107,12 +107,12 @@ class EditDuringFlowTest {
                     .as("editing during a flow does not change the wallet content")
                     .isEqualTo("Neumann");
 
-            String carried = hiddenField(save.getBody(), "singlePresentationCredential");
+            String carried = hiddenField(save.getBody(), "singlePresentationCredentials");
             ResponseEntity<String> present = client(port)
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-neumann&singlePresentationCredential="
+                    .body("selection%5Bpid%5D=pid-maria-neumann&singlePresentationCredentials="
                             + URLEncoder.encode(carried, StandardCharsets.UTF_8) + "&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
@@ -210,6 +210,160 @@ class EditDuringFlowTest {
                     .as("the issued credential answers the query it was created for")
                     .contains("checked");
         }
+    }
+
+    @Test
+    void everyQueryOfASetKeepsItsOwnEditedCredential() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(SET_DCQL_QUERY)) {
+            String flowState = hiddenField(
+                    client(port)
+                            .get()
+                            .uri(WalletTestSupport.authorizeUri(port, verifier))
+                            .retrieve()
+                            .body(String.class),
+                    "flowState");
+            String pickerState = "&setOption%5B0%5D=1"
+                    + "&selection%5Bpid%5D=pid-erika-mustermann"
+                    + "&selection%5Behic%5D=ehic-maria-neumann";
+
+            ResponseEntity<String> afterPidEdit = client(port)
+                    .post()
+                    .uri("/authorize/edit/save")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("id=pid-erika-mustermann&editQueryId=pid&name="
+                            + URLEncoder.encode("PID Erika (edited)", StandardCharsets.UTF_8)
+                            + "&vct=" + URLEncoder.encode("urn:eudi:pid:de:1", StandardCharsets.UTF_8)
+                            + "&validityDays=30"
+                            + "&claimValues%5Bfamily_name%5D=Edited-Erika"
+                            + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
+                            + pickerState)
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(afterPidEdit.getStatusCode()).isEqualTo(HttpStatus.OK);
+            String carriedAfterPid = hiddenField(afterPidEdit.getBody(), "singlePresentationCredentials");
+
+            ResponseEntity<String> afterEhicEdit = client(port)
+                    .post()
+                    .uri("/authorize/edit/save")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("id=ehic-maria-neumann&editQueryId=ehic&name="
+                            + URLEncoder.encode("EHIC Maria (edited)", StandardCharsets.UTF_8)
+                            + "&vct=" + URLEncoder.encode("urn:eudi:ehic:1", StandardCharsets.UTF_8)
+                            + "&validityDays=30"
+                            + "&claimValues%5Bfamily_name%5D=Edited-Maria"
+                            + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
+                            + "&singlePresentationCredentials="
+                            + URLEncoder.encode(carriedAfterPid, StandardCharsets.UTF_8)
+                            + pickerState)
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(afterEhicEdit.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(afterEhicEdit.getBody())
+                    .as("editing the second query keeps the credential edited for the first one")
+                    .contains("PID Erika (edited)")
+                    .contains("EHIC Maria (edited)");
+
+            String carried = hiddenField(afterEhicEdit.getBody(), "singlePresentationCredentials");
+            ResponseEntity<String> present = client(port)
+                    .post()
+                    .uri("/authorize/submit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
+                            + "&singlePresentationCredentials="
+                            + URLEncoder.encode(carried, StandardCharsets.UTF_8)
+                            + pickerState)
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(present.getStatusCode().is3xxRedirection()).isTrue();
+
+            ReceivedResponse response = verifier.awaitResponse();
+            JsonNode vpToken =
+                    new ObjectMapper().readValue(response.formParameters().get("vp_token"), JsonNode.class);
+            assertThat(disclosures(vpToken.get("pid").get(0).asText()))
+                    .as("the pid presentation carries the edited claim")
+                    .anyMatch(disclosure -> "Edited-Erika".equals(disclosure.getClaimValue()));
+            assertThat(disclosures(vpToken.get("ehic").get(0).asText()))
+                    .as("the ehic presentation carries the edited claim")
+                    .anyMatch(disclosure -> "Edited-Maria".equals(disclosure.getClaimValue()));
+        }
+    }
+
+    @Test
+    void reEditingACarriedCredentialReplacesItInsteadOfAddingASecondCard() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(SET_DCQL_QUERY)) {
+            String flowState = hiddenField(
+                    client(port)
+                            .get()
+                            .uri(WalletTestSupport.authorizeUri(port, verifier))
+                            .retrieve()
+                            .body(String.class),
+                    "flowState");
+            String pickerState = "&setOption%5B0%5D=1"
+                    + "&selection%5Bpid%5D=pid-erika-mustermann"
+                    + "&selection%5Behic%5D=ehic-maria-neumann";
+
+            String carried =
+                    hiddenField(editEhic(flowState, "First-Edit", "", pickerState), "singlePresentationCredentials");
+            String pickerAfterSecondEdit = editEhic(flowState, "Second-Edit", carried, pickerState);
+
+            assertThat(pickerAfterSecondEdit)
+                    .as("the second edit replaces the first instead of adding a second candidate")
+                    .containsOnlyOnce("data-credential-id=\"ehic-maria-neumann\"");
+            assertThat(tagAt(pickerAfterSecondEdit, "id=\"select-pid-pid-erika-mustermann\""))
+                    .as("the query that was never edited keeps its wallet credential")
+                    .contains("checked");
+
+            ResponseEntity<String> editor = client(port)
+                    .post()
+                    .uri("/authorize/edit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("editQueryId=ehic&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
+                            + "&singlePresentationCredentials="
+                            + URLEncoder.encode(
+                                    hiddenField(pickerAfterSecondEdit, "singlePresentationCredentials"),
+                                    StandardCharsets.UTF_8)
+                            + pickerState)
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(editor.getBody())
+                    .as("re-opening the editor starts from the credential the flow carries, not the wallet one")
+                    .contains("Second-Edit");
+        }
+    }
+
+    // issues an ad-hoc ehic credential for the running flow and returns the picker that comes back
+    private String editEhic(String flowState, String familyName, String carried, String pickerState) {
+        return client(port)
+                .post()
+                .uri("/authorize/edit/save")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("id=ehic-maria-neumann&editQueryId=ehic&name="
+                        + URLEncoder.encode("EHIC " + familyName, StandardCharsets.UTF_8)
+                        + "&vct=" + URLEncoder.encode("urn:eudi:ehic:1", StandardCharsets.UTF_8)
+                        + "&validityDays=30"
+                        + "&claimValues%5Bfamily_name%5D=" + familyName
+                        + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
+                        + "&singlePresentationCredentials=" + URLEncoder.encode(carried, StandardCharsets.UTF_8)
+                        + pickerState)
+                .retrieve()
+                .body(String.class);
+    }
+
+    @Test
+    void anUnreadableCarriedCredentialShowsTheFlowErrorPage() {
+        ResponseEntity<String> response = client(port)
+                .post()
+                .uri("/authorize/edit")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("credentialId=pid-maria-neumann&singlePresentationCredentials=not-a-credential")
+                .retrieve()
+                .toEntity(String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .as("a broken carried value is answered with the wallet error page, not a stack trace")
+                .contains("The credentials this flow carries cannot be read")
+                .doesNotContain("java.lang.IllegalArgumentException");
     }
 
     @Test
