@@ -3,6 +3,8 @@
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
+  "accessCodeLifespanLogin": 3600,
+  "accessCodeLifespanUserAction": 3600,
   "identityProviders": [
     {
       "alias": "etsi-trust-list",
@@ -12,6 +14,7 @@
       "config": {
         "trustListUrl": "http://host.docker.internal:8081/api/trust-lists/credentials",
         "trustListLoTEType": "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList",
+        "servedCredentialTypes": "urn:eudi:pid:1,urn:eudi:ehic:1",
         "advertiseTrustedAuthorities": "aki"
       }
     },
@@ -35,7 +38,7 @@
         "trustMaterialIdps": "etsi-trust-list",
         "walletScheme": "http://localhost:8081/authorize",
         "principalAttributes": "pid:family_name",
-        "requestObjectLifespanSeconds": "300",
+        "requestObjectLifespanSeconds": "3600",
         "statusListMaxCacheTtlSeconds": "0",
         "x509CertificatePem": "__VERIFIER_PEM__",
         "verifierInfo": "__VERIFIER_INFO__"
@@ -80,6 +83,30 @@
       }
     },
     {
+      "name": "sd-jwt-address-locality-to-attribute",
+      "identityProviderAlias": "oid4vp",
+      "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "credential.id": "pid",
+        "credential.type": "urn:eudi:pid:1",
+        "claim": "address.locality",
+        "user.attribute": "locality"
+      }
+    },
+    {
+      "name": "sd-jwt-nationalities-to-attribute",
+      "identityProviderAlias": "oid4vp",
+      "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "credential.id": "pid",
+        "credential.type": "urn:eudi:pid:1",
+        "claim": "nationalities[]",
+        "user.attribute": "nationalities"
+      }
+    },
+    {
       "name": "ehic-family_name-to-lastName",
       "identityProviderAlias": "oid4vp",
       "identityProviderMapper": "oid4vp-sd-jwt-user-attribute-idp-mapper",
@@ -103,5 +130,18 @@
         "user.attribute": "firstName"
       }
     }
-  ]
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"birthdate\",\"displayName\":\"Birthdate\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"locality\",\"displayName\":\"Locality\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"nationalities\",\"displayName\":\"Nationalities\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":true}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
+      }
+    ]
+  }
 }
