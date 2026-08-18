@@ -58,6 +58,16 @@ supported value is `etsi_tl`, which publishes the trust list URL instead of the 
 A trust domain advertises at most one type, because both describe the same anchors. The verifier
 checks the credential against the trust list either way.
 
+The same identity provider names the credential types it is trusted for:
+
+```json
+"servedCredentialTypes": "urn:eudi:pid:1,urn:eudi:ehic:1"
+```
+
+A trust provider without that setting is trusted for every credential type of every request that
+references it. With it, the verifier only accepts a credential when a configured trust provider
+serves its type. The two types listed here are the ones this realm requests.
+
 The realm configures this verbatim in DCQL syntax on the `oid4vp` identity provider:
 
 ```json
@@ -74,6 +84,53 @@ from the requested one. Presenting Thomas or Erika for a query asking `urn:eudi:
 fails at the verifier, and the simulator shows the verifier's reason on its error page.
 
 The admin console is at <http://localhost:8080/admin> with user `admin` and password `admin`.
+
+## Login timeout
+
+A demo login takes longer than a real one, because the picker is where you read the request and
+decide what to disclose. The realm gives the flow an hour instead of the Keycloak defaults of 30
+and 5 minutes:
+
+```json
+"accessCodeLifespanLogin": 3600,
+"accessCodeLifespanUserAction": 3600
+```
+
+`accessCodeLifespanLogin` is the Keycloak login timeout. It bounds the authentication session and
+the state entry the extension keeps for the running flow, so a presentation arriving later is
+answered with HTTP 400 and `session_expired`. A wallet that fetches the request object that late
+sees HTTP 404 instead, because the state entry is what expired. `accessCodeLifespanUserAction`
+bounds a single page, for example the profile form of the first login. The signed request object
+gets the same hour on the `oid4vp` identity provider. The extension default is 10 seconds:
+
+```json
+"requestObjectLifespanSeconds": "3600"
+```
+
+Restarting the Keycloak container also ends a login that is in flight, because the state entry
+lives in memory.
+
+## Claim mappers
+
+The identity provider mappers turn the disclosed claims into user data, and they are also what
+generates the claims of the DCQL query. Most of them read a plain top level claim. Two of them
+show the path syntax for structured claims:
+
+```json
+"claim": "address.locality"
+"claim": "nationalities[]"
+```
+
+Dot notation walks into a nested claim. `[]` selects every element of an array and `[0]` selects
+the first one. Both forms become DCQL claims path pointers, so the array claim reaches the wallet
+as `["nationalities", null]` per OID4VP 1.0 section 7.1.1. An array is imported as a multivalued
+user attribute, a nested claim as a single value.
+
+Keycloak's user profile decides which attributes survive, so the realm declares `birthdate`,
+`locality` and `nationalities`, the last one as multivalued. Without that declaration the mappers
+still run and the user profile discards the values when the user is created.
+Declaring them also puts them on that profile form and in the account console, where the user can
+edit them. `unmanagedAttributePolicy` set to `ENABLED` is the alternative to declaring each one.
 
 ## Trying revocation
 
