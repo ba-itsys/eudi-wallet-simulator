@@ -49,7 +49,11 @@ class VerifierInfoTest {
         assertThat(jwt.getJWTClaimsSet().getListClaim("purpose"))
                 .containsExactly(Map.of("lang", "en", "value", "Login"));
 
-        assertThat(response.get("verifierInfo").asText()).contains("\"format\":\"registration_cert\"");
+        assertThat(response.get("verifierInfo").asText())
+                .as("the data member carries the compact rc-wrp+jwt, which is what verifiers send")
+                .contains("\"format\":\"registration_cert\"")
+                .contains(
+                        "\"data\":\"" + response.get("registrationCertificate").asText() + "\"");
     }
 
     @Test

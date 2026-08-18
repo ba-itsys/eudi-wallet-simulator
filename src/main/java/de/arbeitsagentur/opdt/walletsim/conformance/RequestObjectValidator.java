@@ -145,8 +145,9 @@ public class RequestObjectValidator {
         }
     }
 
-    // data is the base64url encoding of the signed registration certificate; a raw compact JWT is
-    // tolerated for debugging
+    // Deployments disagree on how the certificate travels in data. ETSI TS 119 472-2 reads as
+    // base64url of the serialized certificate, while the SPRIND sandbox and other verifiers send
+    // the compact rc-wrp+jwt. A wallet under test meets both, so both are accepted
     private static String decodeRegistrationCertificate(String data) {
         if (data.contains(".")) {
             return data;

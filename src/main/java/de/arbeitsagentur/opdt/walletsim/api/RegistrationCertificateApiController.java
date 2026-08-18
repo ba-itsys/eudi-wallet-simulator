@@ -1,8 +1,6 @@
 package de.arbeitsagentur.opdt.walletsim.api;
 
-import com.nimbusds.jose.util.Base64URL;
 import de.arbeitsagentur.opdt.walletsim.registrar.RegistrationCertificateService;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,11 +29,11 @@ public class RegistrationCertificateApiController {
             @RequestParam("client_id") String clientId,
             @RequestParam(name = "purpose", required = false) String purpose) {
         String jwt = registrationCertificates.issue(clientId, purpose);
-        // ETSI TS 119 472-2: format registration_cert, data base64url of the signed
-        // registration certificate, no credential_ids
-        String data = Base64URL.encode(jwt.getBytes(StandardCharsets.UTF_8)).toString();
+        // ETSI TS 119 472-2 reads as base64url of the serialized certificate, but the deployments
+        // this wallet is tested against, the SPRIND sandbox among them, put the compact rc-wrp+jwt
+        // into data. The verifier gets what its peers send, and the wallet accepts both
         String verifierInfo =
-                objectMapper.writeValueAsString(List.of(Map.of("format", "registration_cert", "data", data)));
+                objectMapper.writeValueAsString(List.of(Map.of("format", "registration_cert", "data", jwt)));
         return Map.of("registrationCertificate", jwt, "verifierInfo", verifierInfo);
     }
 }
