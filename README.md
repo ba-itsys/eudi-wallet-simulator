@@ -42,13 +42,14 @@ The response contains the raw certificate and the ready to paste `verifierInfo` 
 `verifierInfo` member is a JSON array serialized into a string because verifier configuration
 fields usually take text. In the request object the claim is the plain array
 `[{"format": "registration_cert", "data": "…"}]` as defined by ETSI TS 119 472-2. The data
-member is the base64url encoding of the signed registration certificate (an `rc-wrp+jwt` per
-ETSI TS 119 475):
+member is the signed registration certificate itself, a compact `rc-wrp+jwt` per ETSI TS 119 475.
+That is what the SPRIND sandbox and other verifiers send. ETSI TS 119 472-2 reads as base64url of
+the serialized certificate instead, so the wallet accepts that encoding too:
 
 ```json
 {
   "registrationCertificate": "eyJ0eXAiOiJyYy13cnArand0IiwieDVjIjpbIi...",
-  "verifierInfo": "[{\"format\":\"registration_cert\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxM2Nu...\"}]"
+  "verifierInfo": "[{\"format\":\"registration_cert\",\"data\":\"eyJ0eXAiOiJyYy13cnArand0IiwieDVjIjpbIi...\"}]"
 }
 ```
 
@@ -60,7 +61,7 @@ configuration:
   "alias": "oid4vp",
   "providerId": "oid4vp",
   "config": {
-    "verifierInfo": "[{\"format\":\"registration_cert\",\"data\":\"ZXlKMGVYQWlPaUp5WXkxM2Nu...\"}]"
+    "verifierInfo": "[{\"format\":\"registration_cert\",\"data\":\"eyJ0eXAiOiJyYy13cnArand0IiwieDVjIjpbIi...\"}]"
   }
 }
 ```
