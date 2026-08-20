@@ -51,14 +51,14 @@ class CredentialAndClaimSetsTest {
                     .uri(authorizeUri(port, verifier))
                     .retrieve()
                     .body(String.class);
-            assertThat(picker).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(picker).contains("data-credential-id=\"pid-jan-hart\"");
             String flowState = hiddenField(picker, "flowState");
 
             ResponseEntity<String> submit = client(port)
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
+                    .body("selection%5Bpid%5D=pid-jan-hart&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);
@@ -96,7 +96,7 @@ class CredentialAndClaimSetsTest {
                     .uri(authorizeUri(port, verifier))
                     .retrieve()
                     .body(String.class);
-            assertThat(picker).contains("id=\"select-pid1-pid-maria-neumann\"");
+            assertThat(picker).contains("id=\"select-pid1-pid-jan-hart\"");
             assertThat(picker).contains("id=\"select-pid2-pid-thomas-bauer\"");
             String flowState = hiddenField(picker, "flowState");
 
@@ -104,7 +104,7 @@ class CredentialAndClaimSetsTest {
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid1%5D=pid-maria-neumann"
+                    .body("selection%5Bpid1%5D=pid-jan-hart"
                             + "&selection%5Bpid2%5D=pid-thomas-bauer"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
@@ -112,7 +112,7 @@ class CredentialAndClaimSetsTest {
             assertThat(submit.getStatusCode().is3xxRedirection()).isTrue();
 
             String vpToken = verifier.awaitResponse().formParameters().get("vp_token");
-            assertThat(disclosedClaimValues(presentation(vpToken, "pid1"))).contains("Neumann");
+            assertThat(disclosedClaimValues(presentation(vpToken, "pid1"))).contains("'t Hart");
             // German PID values are upper case, following ICAO Doc 9303
             assertThat(disclosedClaimValues(presentation(vpToken, "pid2"))).contains("THOMAS");
             assertThat(new ObjectMapper().readValue(vpToken, JsonNode.class).has("bank"))
@@ -154,7 +154,7 @@ class CredentialAndClaimSetsTest {
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("setOption%5B0%5D=1"
-                            + "&selection%5Bpid%5D=pid-maria-neumann"
+                            + "&selection%5Bpid%5D=pid-jan-hart"
                             + "&selection%5Bextra%5D=pid-thomas-bauer"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
@@ -185,7 +185,7 @@ class CredentialAndClaimSetsTest {
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("setOption%5B0%5D=0"
-                            + "&selection%5Bpid%5D=pid-maria-neumann"
+                            + "&selection%5Bpid%5D=pid-jan-hart"
                             + "&selection%5Bextra%5D=pid-thomas-bauer"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()

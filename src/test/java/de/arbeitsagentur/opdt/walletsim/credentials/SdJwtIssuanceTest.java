@@ -83,9 +83,9 @@ class SdJwtIssuanceTest {
 
         // all disclosures decode back to the original claims, including nested structures
         Map<String, Object> decoded = new SDObjectDecoder().decode(claims, disclosures(credential.sdJwt()));
-        assertThat(decoded.get("family_name")).isEqualTo("Neumann");
-        assertThat(asMap(decoded.get("address")).get("locality")).isEqualTo("Berlin");
-        assertThat((List<?>) decoded.get("nationalities")).isEqualTo(List.of("DE"));
+        assertThat(decoded.get("family_name")).isEqualTo("'t Hart");
+        assertThat(asMap(decoded.get("address")).get("locality")).isEqualTo("Leiden");
+        assertThat((List<?>) decoded.get("nationalities")).isEqualTo(List.of("NL"));
     }
 
     @Test

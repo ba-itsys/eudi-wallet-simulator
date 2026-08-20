@@ -55,7 +55,7 @@ class NestedDisclosureTest {
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
+                    .body("selection%5Bpid%5D=pid-jan-hart&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);
@@ -70,10 +70,10 @@ class NestedDisclosureTest {
             SignedJWT issuerJwt = issuerJwt(presentation);
             Map<String, Object> decoded =
                     new SDObjectDecoder().decode(issuerJwt.getJWTClaimsSet().getClaims(), disclosures(presentation));
-            assertThat(decoded.get("family_name")).isEqualTo("Neumann");
+            assertThat(decoded.get("family_name")).isEqualTo("'t Hart");
             @SuppressWarnings("unchecked")
             Map<String, Object> address = (Map<String, Object>) decoded.get("address");
-            assertThat(address.get("locality")).isEqualTo("Berlin");
+            assertThat(address.get("locality")).isEqualTo("Leiden");
             assertThat(address)
                     .as("sibling claims of the requested nested path stay undisclosed")
                     .doesNotContainKeys("street_address", "postal_code");

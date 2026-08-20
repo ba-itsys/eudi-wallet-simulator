@@ -34,7 +34,7 @@ class TrustedAuthoritiesTest {
                     .uri(authorizeUri(port, verifier))
                     .retrieve()
                     .body(String.class);
-            assertThat(picker).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(picker).contains("data-credential-id=\"pid-jan-hart\"");
         }
     }
 
@@ -61,7 +61,7 @@ class TrustedAuthoritiesTest {
                     .uri(authorizeUri(port, verifier))
                     .retrieve()
                     .body(String.class);
-            assertThat(picker).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(picker).contains("data-credential-id=\"pid-jan-hart\"");
         }
     }
 

@@ -48,7 +48,7 @@ class EncryptedResponseTest {
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
+                    .body("selection%5Bpid%5D=pid-jan-hart&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);

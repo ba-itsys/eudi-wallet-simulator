@@ -57,30 +57,29 @@ class EditDuringFlowTest {
                     .post()
                     .uri("/authorize/edit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("credentialId=pid-maria-neumann&flowState="
-                            + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .body("credentialId=pid-jan-hart&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);
             assertThat(editForm.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(editForm.getBody()).contains("id=\"claim-family_name\"");
-            assertThat(editForm.getBody()).contains("Neumann");
+            assertThat(editForm.getBody()).contains("t Hart");
             assertThat(editForm.getBody()).contains("name=\"flowState\"");
             assertThat(editForm.getBody())
                     .as("the credential keeps its id and status list slot")
-                    .contains("value=\"pid-maria-neumann\"")
+                    .contains("value=\"pid-jan-hart\"")
                     .contains("name=\"statusIndex\"");
 
             ResponseEntity<String> save = client(port)
                     .post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("id=pid-maria-neumann&statusIndex=0&name="
-                            + URLEncoder.encode("PID Maria (edited)", StandardCharsets.UTF_8)
+                    .body("id=pid-jan-hart&statusIndex=0&name="
+                            + URLEncoder.encode("PID Jan (edited)", StandardCharsets.UTF_8)
                             + "&vct=" + URLEncoder.encode("urn:eudi:pid:1", StandardCharsets.UTF_8)
                             + "&validityDays=30"
-                            + "&claimValues%5Bfamily_name%5D=Edited-Neumann"
-                            + "&claimValues%5Bgiven_name%5D=Maria"
-                            + "&claimValues%5Bbirthdate%5D=1964-08-12"
+                            + "&claimValues%5Bfamily_name%5D=Edited-Hart"
+                            + "&claimValues%5Bgiven_name%5D=Jan"
+                            + "&claimValues%5Bbirthdate%5D=1978-02-12"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);
@@ -88,11 +87,11 @@ class EditDuringFlowTest {
             assertThat(save.getStatusCode())
                     .as("issuing returns to the selection instead of presenting")
                     .isEqualTo(HttpStatus.OK);
-            assertThat(save.getBody()).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(save.getBody()).contains("data-credential-id=\"pid-jan-hart\"");
             assertThat(save.getBody())
                     .as("the wallet credential is replaced for this flow, not duplicated")
-                    .containsOnlyOnce("data-credential-id=\"pid-maria-neumann\"");
-            int radioStart = save.getBody().indexOf("select-pid-pid-maria-neumann");
+                    .containsOnlyOnce("data-credential-id=\"pid-jan-hart\"");
+            int radioStart = save.getBody().indexOf("select-pid-pid-jan-hart");
             assertThat(save.getBody().substring(radioStart, radioStart + 120))
                     .as("the new credential is preselected")
                     .contains("checked");
@@ -100,19 +99,19 @@ class EditDuringFlowTest {
 
             JsonNode stored = client(port)
                     .get()
-                    .uri("/api/credentials/pid-maria-neumann")
+                    .uri("/api/credentials/pid-jan-hart")
                     .retrieve()
                     .body(JsonNode.class);
             assertThat(stored.get("claims").get("family_name").asText())
                     .as("editing during a flow does not change the wallet content")
-                    .isEqualTo("Neumann");
+                    .isEqualTo("'t Hart");
 
             String carried = hiddenField(save.getBody(), "singlePresentationCredentials");
             ResponseEntity<String> present = client(port)
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-neumann&singlePresentationCredentials="
+                    .body("selection%5Bpid%5D=pid-jan-hart&singlePresentationCredentials="
                             + URLEncoder.encode(carried, StandardCharsets.UTF_8) + "&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
@@ -124,7 +123,7 @@ class EditDuringFlowTest {
                     new ObjectMapper().readValue(response.formParameters().get("vp_token"), JsonNode.class);
             String presentation = vpToken.get("pid").get(0).asText();
             assertThat(disclosures(presentation))
-                    .anyMatch(disclosure -> "Edited-Neumann".equals(disclosure.getClaimValue()));
+                    .anyMatch(disclosure -> "Edited-Hart".equals(disclosure.getClaimValue()));
 
             SignedJWT issuerJwt = issuerJwt(presentation);
             @SuppressWarnings("unchecked")
@@ -153,7 +152,7 @@ class EditDuringFlowTest {
     private static final String CARRIED_PICKER_STATE = "&editQueryId=ehic"
             + "&setOption%5B0%5D=1"
             + "&selection%5Bpid%5D=pid-erika-mustermann"
-            + "&selection%5Behic%5D=ehic-maria-neumann";
+            + "&selection%5Behic%5D=ehic-erika-mustermann";
 
     @Test
     void editingKeepsTheChosenAlternativeAndTheSelectionsOfEveryOtherQuery() throws Exception {
@@ -186,11 +185,11 @@ class EditDuringFlowTest {
                     .post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("id=ehic-maria-neumann&name="
-                            + URLEncoder.encode("EHIC Maria (edited)", StandardCharsets.UTF_8)
+                    .body("id=ehic-erika-mustermann&name="
+                            + URLEncoder.encode("EHIC Erika (edited)", StandardCharsets.UTF_8)
                             + "&vct=" + URLEncoder.encode("urn:eudi:ehic:1", StandardCharsets.UTF_8)
                             + "&validityDays=30"
-                            + "&claimValues%5Bfamily_name%5D=Edited-Neumann"
+                            + "&claimValues%5Bfamily_name%5D=Edited-Mustermann"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
                             + CARRIED_PICKER_STATE)
                     .retrieve()
@@ -206,7 +205,7 @@ class EditDuringFlowTest {
             assertThat(tagAt(save.getBody(), "id=\"select-pid-pid-thomas-bauer\""))
                     .as("the credential the user did not pick stays unchecked")
                     .doesNotContain("checked");
-            assertThat(tagAt(save.getBody(), "id=\"select-ehic-ehic-maria-neumann\""))
+            assertThat(tagAt(save.getBody(), "id=\"select-ehic-ehic-erika-mustermann\""))
                     .as("the issued credential answers the query it was created for")
                     .contains("checked");
         }
@@ -224,7 +223,7 @@ class EditDuringFlowTest {
                     "flowState");
             String pickerState = "&setOption%5B0%5D=1"
                     + "&selection%5Bpid%5D=pid-erika-mustermann"
-                    + "&selection%5Behic%5D=ehic-maria-neumann";
+                    + "&selection%5Behic%5D=ehic-erika-mustermann";
 
             ResponseEntity<String> afterPidEdit = client(port)
                     .post()
@@ -246,11 +245,11 @@ class EditDuringFlowTest {
                     .post()
                     .uri("/authorize/edit/save")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("id=ehic-maria-neumann&editQueryId=ehic&name="
-                            + URLEncoder.encode("EHIC Maria (edited)", StandardCharsets.UTF_8)
+                    .body("id=ehic-erika-mustermann&editQueryId=ehic&name="
+                            + URLEncoder.encode("EHIC Erika (edited)", StandardCharsets.UTF_8)
                             + "&vct=" + URLEncoder.encode("urn:eudi:ehic:1", StandardCharsets.UTF_8)
                             + "&validityDays=30"
-                            + "&claimValues%5Bfamily_name%5D=Edited-Maria"
+                            + "&claimValues%5Bfamily_name%5D=Edited-Ehic"
                             + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8)
                             + "&singlePresentationCredentials="
                             + URLEncoder.encode(carriedAfterPid, StandardCharsets.UTF_8)
@@ -261,7 +260,7 @@ class EditDuringFlowTest {
             assertThat(afterEhicEdit.getBody())
                     .as("editing the second query keeps the credential edited for the first one")
                     .contains("PID Erika (edited)")
-                    .contains("EHIC Maria (edited)");
+                    .contains("EHIC Erika (edited)");
 
             String carried = hiddenField(afterEhicEdit.getBody(), "singlePresentationCredentials");
             ResponseEntity<String> present = client(port)
@@ -284,7 +283,7 @@ class EditDuringFlowTest {
                     .anyMatch(disclosure -> "Edited-Erika".equals(disclosure.getClaimValue()));
             assertThat(disclosures(vpToken.get("ehic").get(0).asText()))
                     .as("the ehic presentation carries the edited claim")
-                    .anyMatch(disclosure -> "Edited-Maria".equals(disclosure.getClaimValue()));
+                    .anyMatch(disclosure -> "Edited-Ehic".equals(disclosure.getClaimValue()));
         }
     }
 
@@ -300,7 +299,7 @@ class EditDuringFlowTest {
                     "flowState");
             String pickerState = "&setOption%5B0%5D=1"
                     + "&selection%5Bpid%5D=pid-erika-mustermann"
-                    + "&selection%5Behic%5D=ehic-maria-neumann";
+                    + "&selection%5Behic%5D=ehic-erika-mustermann";
 
             String carried =
                     hiddenField(editEhic(flowState, "First-Edit", "", pickerState), "singlePresentationCredentials");
@@ -308,7 +307,7 @@ class EditDuringFlowTest {
 
             assertThat(pickerAfterSecondEdit)
                     .as("the second edit replaces the first instead of adding a second candidate")
-                    .containsOnlyOnce("data-credential-id=\"ehic-maria-neumann\"");
+                    .containsOnlyOnce("data-credential-id=\"ehic-erika-mustermann\"");
             assertThat(tagAt(pickerAfterSecondEdit, "id=\"select-pid-pid-erika-mustermann\""))
                     .as("the query that was never edited keeps its wallet credential")
                     .contains("checked");
@@ -337,7 +336,7 @@ class EditDuringFlowTest {
                 .post()
                 .uri("/authorize/edit/save")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body("id=ehic-maria-neumann&editQueryId=ehic&name="
+                .body("id=ehic-erika-mustermann&editQueryId=ehic&name="
                         + URLEncoder.encode("EHIC " + familyName, StandardCharsets.UTF_8)
                         + "&vct=" + URLEncoder.encode("urn:eudi:ehic:1", StandardCharsets.UTF_8)
                         + "&validityDays=30"
@@ -355,7 +354,7 @@ class EditDuringFlowTest {
                 .post()
                 .uri("/authorize/edit")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body("credentialId=pid-maria-neumann&singlePresentationCredentials=not-a-credential")
+                .body("credentialId=pid-jan-hart&singlePresentationCredentials=not-a-credential")
                 .retrieve()
                 .toEntity(String.class);
 
@@ -389,7 +388,7 @@ class EditDuringFlowTest {
             assertThat(tagAt(picker.getBody(), "data-query-ids=\"pid,ehic\"")).contains("selected");
             assertThat(tagAt(picker.getBody(), "id=\"select-pid-pid-erika-mustermann\""))
                     .contains("checked");
-            assertThat(tagAt(picker.getBody(), "id=\"select-ehic-ehic-maria-neumann\""))
+            assertThat(tagAt(picker.getBody(), "id=\"select-ehic-ehic-erika-mustermann\""))
                     .contains("checked");
         }
     }

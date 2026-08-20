@@ -2,6 +2,8 @@ package de.arbeitsagentur.opdt.walletsim.credentials;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,7 +59,9 @@ public class CredentialSeedLoader implements ApplicationRunner {
         List<String> alwaysDisclosed = entry.get("alwaysDisclosedClaims") instanceof List<?> paths
                 ? paths.stream().map(String::valueOf).toList()
                 : List.of();
-        return new CredentialDefinition(id, name, vct, validityDays, Map.copyOf(claims), alwaysDisclosed);
+        // the seed order is the order the wallet shows the claims in, so it has to survive the copy
+        return new CredentialDefinition(
+                id, name, vct, validityDays, Collections.unmodifiableMap(new LinkedHashMap<>(claims)), alwaysDisclosed);
     }
 
     private static String requireString(Map<String, Object> entry, String key) {

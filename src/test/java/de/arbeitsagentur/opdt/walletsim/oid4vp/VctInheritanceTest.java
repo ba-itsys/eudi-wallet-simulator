@@ -38,7 +38,7 @@ class VctInheritanceTest {
                     .retrieve()
                     .body(String.class);
 
-            assertThat(picker).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(picker).contains("data-credential-id=\"pid-jan-hart\"");
             assertThat(picker)
                     .as("urn:eudi:pid:de:1 extends urn:eudi:pid:1")
                     .contains("data-credential-id=\"pid-thomas-bauer\"");
@@ -61,7 +61,7 @@ class VctInheritanceTest {
             assertThat(picker).contains("data-credential-id=\"pid-erika-mustermann\"");
             assertThat(picker)
                     .as("the base type does not extend the child type")
-                    .doesNotContain("data-credential-id=\"pid-maria-neumann\"");
+                    .doesNotContain("data-credential-id=\"pid-jan-hart\"");
             assertThat(picker)
                     .as("sibling country types do not extend each other")
                     .doesNotContain("data-credential-id=\"pid-sofia-rossi\"");

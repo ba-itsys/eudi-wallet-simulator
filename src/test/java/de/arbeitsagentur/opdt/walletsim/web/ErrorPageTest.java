@@ -47,7 +47,7 @@ class ErrorPageTest {
     @Test
     void verifierRejectionWithoutOauthErrorShowsTheRawAnswer() throws Exception {
         try (TestVerifier verifier = TestVerifier.pidVerifier().withRejectedResponses(500, "backend exploded")) {
-            ResponseEntity<String> page = present(verifier, "pid-maria-neumann");
+            ResponseEntity<String> page = present(verifier, "pid-jan-hart");
 
             assertThat(page.getBody()).contains("The verifier rejected the presentation with HTTP 500");
             assertThat(page.getBody()).contains("backend exploded");
@@ -67,7 +67,7 @@ class ErrorPageTest {
                     "flowState");
         }
         // the verifier is closed now, so its response_uri no longer accepts anything
-        ResponseEntity<String> page = submit(flowState, "pid-maria-neumann");
+        ResponseEntity<String> page = submit(flowState, "pid-jan-hart");
 
         assertThat(page.getBody()).contains("Could not reach the verifier at");
     }

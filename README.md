@@ -80,12 +80,16 @@ instead of a selectively disclosable one. In the seed file the same is expressed
 with `alwaysDisclosedClaims`.
 
 The pre defined PID credentials use the claim names of the EUDI PID rulebook for the SD-JWT VC
-encoding. The rulebook requires no attribute to be a plain member of the credential body, so all
-seeded claims are selectively disclosable. The two `urn:eudi:pid:de:1` credentials follow the
-German PID rulebook instead, which carries no document number, no personal administrative number,
-no issuing jurisdiction and no sex, adds `source_document_type`, `birth_name` and
-`age_equal_or_over`, and stores string values in upper case. The Italian credential keeps the EU
-optional attributes so a verifier can be tested against those as well.
+encoding. All claims are selectively disclosable unless a credential lists them in
+`alwaysDisclosedClaims`. The Dutch credential carries the optional EU attributes such as
+`address.house_number`, `sex`, `email` and `phone_number` so a verifier can be tested against
+those as well. The two `urn:eudi:pid:de:1` credentials follow the German PID rulebook as the
+German PID provider documents it under [PID-Credential
+Claims](https://demo.pid-provider.bundesdruckerei.de/credential-claims). Every claim of a German
+PID is always present, so a value the eID does not carry is an empty string, string values come
+from the eID in upper case, and there is no document number, personal administrative number,
+issuing jurisdiction, sex or date of issuance. The Italian credential follows the Italian profile,
+which carries the codice fiscale as `tax_id_code` and has no address.
 
 During a verification the picker shows one selection group per requested DCQL credential query.
 The evaluation covers vct and claim matching, claim_sets in preference order, credential_sets
