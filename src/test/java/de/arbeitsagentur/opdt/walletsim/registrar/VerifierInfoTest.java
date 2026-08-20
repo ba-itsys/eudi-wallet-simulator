@@ -91,7 +91,7 @@ class VerifierInfoTest {
             assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(picker.getBody())
                     .as("the picker actually rendered")
-                    .contains("data-credential-id=\"pid-maria-neumann\"");
+                    .contains("data-credential-id=\"pid-jan-hart\"");
             assertThat(picker.getBody()).doesNotContain("verifier_info");
         }
     }

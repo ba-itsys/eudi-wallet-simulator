@@ -65,7 +65,7 @@ class VpFlowTest {
             ResponseEntity<String> picker =
                     client(port).get().uri(authorizeUrl).retrieve().toEntity(String.class);
             assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(picker.getBody()).contains("data-credential-id=\"pid-maria-neumann\"");
+            assertThat(picker.getBody()).contains("data-credential-id=\"pid-jan-hart\"");
             assertThat(picker.getBody()).contains("name=\"flowState\"");
 
             String flowState = hiddenField(picker.getBody(), "flowState");
@@ -74,7 +74,7 @@ class VpFlowTest {
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
+                    .body("selection%5Bpid%5D=pid-jan-hart&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);
@@ -133,7 +133,7 @@ class VpFlowTest {
                     .post()
                     .uri("/authorize/submit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("selection%5Bpid%5D=pid-maria-neumann&flowState="
+                    .body("selection%5Bpid%5D=pid-jan-hart&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .toEntity(String.class);

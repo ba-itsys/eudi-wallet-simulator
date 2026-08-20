@@ -31,9 +31,9 @@ class AdHocCredentialTest {
         ResponseEntity<String> home = client(port).get().uri("/").retrieve().toEntity(String.class);
 
         assertThat(home.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(home.getBody()).contains("data-credential-id=\"pid-maria-neumann\"");
+        assertThat(home.getBody()).contains("data-credential-id=\"pid-jan-hart\"");
         assertThat(home.getBody()).contains("urn:eudi:pid:1");
-        assertThat(home.getBody()).contains("Maria Neumann");
+        assertThat(home.getBody()).contains("Jan Wijnand");
     }
 
     @Test
@@ -59,7 +59,7 @@ class AdHocCredentialTest {
                 .post()
                 .uri("/credentials/edit")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body("credentialId=pid-maria-neumann")
+                .body("credentialId=pid-jan-hart")
                 .retrieve()
                 .toEntity(String.class);
 
@@ -72,11 +72,11 @@ class AdHocCredentialTest {
                 .as("nested claims render as dot notation fields")
                 .contains("id=\"claim-address.street_address\"");
         assertThat(editForm.getBody()).contains("id=\"claim-address.locality\"");
-        assertThat(editForm.getBody()).contains("Neumann");
+        assertThat(editForm.getBody()).contains("t Hart");
         assertThat(editForm.getBody()).contains("id=\"new-claim-name\"");
         assertThat(editForm.getBody())
                 .as("clone gets a fresh id suggestion, not the original id")
-                .doesNotContain("value=\"pid-maria-neumann\"");
+                .doesNotContain("value=\"pid-jan-hart\"");
     }
 
     @Test

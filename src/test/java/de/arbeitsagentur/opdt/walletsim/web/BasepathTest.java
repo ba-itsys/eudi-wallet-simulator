@@ -29,7 +29,7 @@ class BasepathTest {
                 .post()
                 .uri("/credentials/edit")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body("credentialId=pid-maria-neumann")
+                .body("credentialId=pid-jan-hart")
                 .retrieve()
                 .body(String.class);
         assertThat(startPageEdit).contains("action=\"/wallet/credentials/save\"");
@@ -47,7 +47,7 @@ class BasepathTest {
                     .post()
                     .uri("/authorize/edit")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body("editQueryId=pid&selection%5Bpid%5D=pid-maria-neumann&flowState="
+                    .body("editQueryId=pid&selection%5Bpid%5D=pid-jan-hart&flowState="
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .body(String.class);

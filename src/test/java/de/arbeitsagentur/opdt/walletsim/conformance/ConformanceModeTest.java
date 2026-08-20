@@ -36,7 +36,7 @@ class ConformanceModeTest {
             assertThat(picker.getBody()).contains("nonce");
             assertThat(picker.getBody())
                     .as("flow continues in debug mode")
-                    .contains("data-credential-id=\"pid-maria-neumann\"");
+                    .contains("data-credential-id=\"pid-jan-hart\"");
         }
     }
 
@@ -60,7 +60,7 @@ class ConformanceModeTest {
             assertThat(picker.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(picker.getBody())
                     .as("the picker actually rendered")
-                    .contains("data-credential-id=\"pid-maria-neumann\"");
+                    .contains("data-credential-id=\"pid-jan-hart\"");
             assertThat(picker.getBody()).doesNotContain("conformance-warnings");
         }
     }
