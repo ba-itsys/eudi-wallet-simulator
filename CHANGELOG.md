@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.1...v1.2.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* default pids match rulebooks closer ([7120300](https://github.com/ba-itsys/eudi-wallet-simulator/commit/7120300a57992d11aa6cb3309a240dc8c4760c7d))
+
 ## [1.2.1](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.0...v1.2.1) (2026-08-18)
 
 
