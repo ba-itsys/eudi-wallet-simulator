@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.3](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.2...v1.2.3) (2026-08-21)
+
+
+### Bug Fixes
+
+* allow empty claims on credential edit ([5c63e9e](https://github.com/ba-itsys/eudi-wallet-simulator/commit/5c63e9e96570d993f4fdb12e8dcc6176cee68478))
+
 ## [1.2.2](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.1...v1.2.2) (2026-08-20)
 
 
