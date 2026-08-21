@@ -165,11 +165,13 @@ same form values directly. `examples/keycloak/smoke-test.sh` drives the whole lo
 | `app.pki.seed` | *(empty)* | Derives all key material from this value in memory instead of persisting it. See below |
 | `app.resources.credentials` | `classpath:credentials.yml` | Pre defined credential seed. Any Spring resource works, for example `file:my-credentials.yml` |
 | `app.basepath` | *(empty)* | URL prefix when deployed behind a path rewriting ingress |
+| `app.insecure-tls` | `false` | Accepts any certificate for any host on outgoing https calls. See below |
 | `app.env` | `localDEV` | Environment label shown in the navbar |
 | `app.web.title` | `EUDI Wallet Simulator` | Page title and navbar heading |
 | `server.port` | `8080` | HTTP port |
 
-Environment variable form: `APP_BASEURL`, `APP_MODE`, `APP_WEB_TITLE`, `SERVER_PORT`.
+Environment variable form: `APP_BASEURL`, `APP_MODE`, `APP_INSECURE_TLS`, `APP_WEB_TITLE`,
+`SERVER_PORT`.
 
 Credentials, ad hoc changes and revocations are held in memory and reset on restart. The key
 material persists, see below.
@@ -191,9 +193,17 @@ JAVA_TOOL_OPTIONS="-Dhttp.proxyHost=proxy.internal -Dhttp.proxyPort=3128 \
   -Dhttp.nonProxyHosts=localhost|*.svc.cluster.local" java -jar target/wallet-simulator.jar
 ```
 
-`http.nonProxyHosts` covers HTTPS too. Java does not read the `HTTP_PROXY` and `HTTPS_PROXY`
-environment variables, so pass the properties as shown. Proxies that ask for authentication are
-not supported.
+`http.nonProxyHosts` covers HTTPS too, and setting it replaces the built in default
+`localhost|127.*|[::1]|0.0.0.0|[::0]`, so keep localhost in the list. `https.proxyHost` names the
+proxy used for https targets. That proxy is reached over plain HTTP with a CONNECT tunnel, so the
+same host and port belong in both properties. Java does not read the `HTTP_PROXY` and
+`HTTPS_PROXY` environment variables, so pass the properties as shown. Proxies that ask for
+authentication are not supported.
+
+With `app.insecure-tls=true` the outgoing calls accept any certificate for any host. Neither the
+issuer nor the host name in the certificate is checked, which covers a verifier behind a self
+signed certificate and a proxy that rewrites TLS. The connections the simulator serves are not
+affected. The simulator logs a warning at startup while the setting is on.
 
 Outgoing calls take the Spring Boot HTTP client settings, for example
 `spring.http.clients.connect-timeout` and `spring.http.clients.read-timeout`. Redirects are
