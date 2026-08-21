@@ -174,6 +174,34 @@ Environment variable form: `APP_BASEURL`, `APP_MODE`, `APP_WEB_TITLE`, `SERVER_P
 Credentials, ad hoc changes and revocations are held in memory and reset on restart. The key
 material persists, see below.
 
+## Outgoing connections
+
+The simulator talks to the verifier from the server side. It fetches the request object from
+`request_uri` and posts the authorization response to `response_uri` itself, so both URLs have to
+be reachable from the process that runs the simulator. Only the `redirect_uri` that ends a same
+device flow is opened by the browser. In a cluster this means the verifier URLs must resolve
+inside the cluster as well, not only from the user's browser.
+
+Outgoing calls use the standard JVM proxy settings, so an egress proxy is configured with the
+usual system properties.
+
+```sh
+JAVA_TOOL_OPTIONS="-Dhttp.proxyHost=proxy.internal -Dhttp.proxyPort=3128 \
+  -Dhttps.proxyHost=proxy.internal -Dhttps.proxyPort=3128 \
+  -Dhttp.nonProxyHosts=localhost|*.svc.cluster.local" java -jar target/wallet-simulator.jar
+```
+
+`http.nonProxyHosts` covers HTTPS too. Java does not read the `HTTP_PROXY` and `HTTPS_PROXY`
+environment variables, so pass the properties as shown. Proxies that ask for authentication are
+not supported.
+
+Outgoing calls take the Spring Boot HTTP client settings, for example
+`spring.http.clients.connect-timeout` and `spring.http.clients.read-timeout`. Redirects are
+followed, so a verifier whose ingress moves the `request_uri`, for example from http to https,
+still works. Keep in mind that a redirect answering the `direct_post` turns the POST into a GET
+without the presentation, which is what HTTP clients do with a 302. Set
+`spring.http.clients.redirects` to `dont-follow` to see such an answer as it arrived instead.
+
 ## Key material
 
 On startup the simulator loads its PKI from `app.pki.dir`. Missing files are generated and

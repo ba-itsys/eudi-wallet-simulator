@@ -21,11 +21,13 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class ResponseSubmitter {
 
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final ResponseEncryptor responseEncryptor;
 
-    public ResponseSubmitter(ObjectMapper objectMapper, ResponseEncryptor responseEncryptor) {
+    public ResponseSubmitter(
+            RestClient.Builder restClientBuilder, ObjectMapper objectMapper, ResponseEncryptor responseEncryptor) {
+        this.restClient = restClientBuilder.build();
         this.objectMapper = objectMapper;
         this.responseEncryptor = responseEncryptor;
     }
