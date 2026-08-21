@@ -18,7 +18,9 @@ import tools.jackson.databind.ObjectMapper;
  * <p>Nested claim objects are flattened into dot notation fields (address.locality) and
  * reassembled on submit. Claim values round-trip as text: strings render raw, everything else
  * renders as JSON. On submit a value is parsed as JSON when possible and kept as a string
- * otherwise, so a postal code like {@code "10409"} renders quoted and survives as a string.
+ * otherwise, so a postal code like {@code "10409"} renders quoted and survives as a string. An
+ * empty claim value renders as {@code ""} because an empty field drops the claim, and rulebooks
+ * like the German PID keep claims with an empty value.
  */
 @Component
 public class CredentialEditForms {
@@ -194,8 +196,9 @@ public class CredentialEditForms {
         });
     }
 
+    // a blank string renders quoted, so the field is not empty and the claim survives a round trip
     private String renderClaimValue(Object value) {
-        if (value instanceof String text && !parsesAsJson(text)) {
+        if (value instanceof String text && StringUtils.hasText(text) && !parsesAsJson(text)) {
             return text;
         }
         return objectMapper.writeValueAsString(value);
