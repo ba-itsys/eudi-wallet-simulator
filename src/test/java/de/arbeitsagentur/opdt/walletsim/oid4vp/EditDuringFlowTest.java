@@ -424,4 +424,100 @@ class EditDuringFlowTest {
             assertThat(save.getBody()).contains("does not match the verifier");
         }
     }
+
+    private static final String DE_PID_DCQL_QUERY =
+            """
+            {"credentials": [{
+                "id": "pid",
+                "format": "dc+sd-jwt",
+                "meta": {"vct_values": ["urn:eudi:pid:de:1"]},
+                "claims": [{"path": ["family_name"]}, {"path": ["title"]}]
+            }]}
+            """;
+
+    // the German PID rulebook keeps claims the eID does not carry with an empty value, and a
+    // verifier may ask for one of them
+    @Test
+    void editingACredentialWithAnEmptyClaimKeepsItAnswerableForTheQuery() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(DE_PID_DCQL_QUERY)) {
+            String flowState = hiddenField(
+                    client(port)
+                            .get()
+                            .uri(WalletTestSupport.authorizeUri(port, verifier))
+                            .retrieve()
+                            .body(String.class),
+                    "flowState");
+
+            String editForm = client(port)
+                    .post()
+                    .uri("/authorize/edit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("credentialId=pid-erika-mustermann&editQueryId=pid&flowState="
+                            + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .body(String.class);
+            assertThat(tagAt(editForm, "name=\"claimValues[title]\""))
+                    .as("an empty claim renders as a quoted empty string instead of a blank field")
+                    .contains("value=\"&quot;&quot;\"");
+
+            String picker = client(port)
+                    .post()
+                    .uri("/authorize/edit/save")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("id=pid-erika-mustermann&editQueryId=pid&name="
+                            + URLEncoder.encode("PID Erika (edited)", StandardCharsets.UTF_8)
+                            + "&vct=" + URLEncoder.encode("urn:eudi:pid:de:1", StandardCharsets.UTF_8)
+                            + "&validityDays=14"
+                            + submittedClaimValues(editForm)
+                            + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .body(String.class);
+            assertThat(picker)
+                    .as("saving the editor unchanged keeps the credential answering the query")
+                    .doesNotContain("does not match the verifier");
+
+            ResponseEntity<String> present = client(port)
+                    .post()
+                    .uri("/authorize/submit")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body("selection%5Bpid%5D=pid-erika-mustermann&singlePresentationCredentials="
+                            + URLEncoder.encode(
+                                    hiddenField(picker, "singlePresentationCredentials"), StandardCharsets.UTF_8)
+                            + "&flowState=" + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
+                    .retrieve()
+                    .toEntity(String.class);
+            assertThat(present.getStatusCode().is3xxRedirection()).isTrue();
+
+            ReceivedResponse response = verifier.awaitResponse();
+            JsonNode vpToken =
+                    new ObjectMapper().readValue(response.formParameters().get("vp_token"), JsonNode.class);
+            assertThat(disclosures(vpToken.get("pid").get(0).asText()))
+                    .as("the empty claim is disclosed with its empty value")
+                    .anyMatch(disclosure ->
+                            "title".equals(disclosure.getClaimName()) && "".equals(disclosure.getClaimValue()));
+        }
+    }
+
+    // the claim fields of the rendered editor, posted back the way the browser would
+    private static String submittedClaimValues(String html) {
+        StringBuilder body = new StringBuilder();
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(
+                        "<input[^>]*name=\"claimValues\\[([^\\]]+)\\][^>]*>")
+                .matcher(html);
+        while (matcher.find()) {
+            java.util.regex.Matcher value =
+                    java.util.regex.Pattern.compile("value=\"([^\"]*)\"").matcher(matcher.group());
+            body.append("&claimValues%5B")
+                    .append(URLEncoder.encode(matcher.group(1), StandardCharsets.UTF_8))
+                    .append("%5D=")
+                    .append(
+                            value.find()
+                                    ? URLEncoder.encode(
+                                            org.springframework.web.util.HtmlUtils.htmlUnescape(value.group(1)),
+                                            StandardCharsets.UTF_8)
+                                    : "");
+        }
+        assertThat(body.length()).as("editor renders claim fields").isPositive();
+        return body.toString();
+    }
 }
