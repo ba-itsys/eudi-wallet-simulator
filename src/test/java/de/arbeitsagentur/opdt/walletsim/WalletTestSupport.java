@@ -8,14 +8,21 @@ import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.TestVerifier;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.List;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 // The three things every wallet test needs: a client, the wallet link of a verifier, and the flow
 // state the picker carries in a hidden field.
 public final class WalletTestSupport {
+
+    // the browser reaches the simulator directly, so the test client stays out of any proxy a
+    // test configures for the calls the simulator makes itself
+    private static final HttpClient WITHOUT_PROXY =
+            HttpClient.newBuilder().proxy(HttpClient.Builder.NO_PROXY).build();
 
     private WalletTestSupport() {}
 
@@ -23,6 +30,7 @@ public final class WalletTestSupport {
     public static RestClient client(int port) {
         return RestClient.builder()
                 .baseUrl("http://localhost:" + port)
+                .requestFactory(new JdkClientHttpRequestFactory(WITHOUT_PROXY))
                 .defaultStatusHandler(status -> true, (request, response) -> {})
                 .build();
     }

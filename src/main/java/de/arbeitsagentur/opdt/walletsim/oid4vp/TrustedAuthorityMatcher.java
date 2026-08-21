@@ -35,13 +35,17 @@ public class TrustedAuthorityMatcher {
     private static final Logger LOG = LoggerFactory.getLogger(TrustedAuthorityMatcher.class);
 
     private final Map<String, List<X509Certificate>> trustListCache = new ConcurrentHashMap<>();
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final AppProperties properties;
     private final TrustListService trustListService;
 
     public TrustedAuthorityMatcher(
-            ObjectMapper objectMapper, AppProperties properties, TrustListService trustListService) {
+            RestClient.Builder restClientBuilder,
+            ObjectMapper objectMapper,
+            AppProperties properties,
+            TrustListService trustListService) {
+        this.restClient = restClientBuilder.build();
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.trustListService = trustListService;

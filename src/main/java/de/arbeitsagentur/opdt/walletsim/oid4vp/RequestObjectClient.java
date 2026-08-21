@@ -7,7 +7,11 @@ import org.springframework.web.client.RestClient;
 @Component
 public class RequestObjectClient {
 
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient;
+
+    public RequestObjectClient(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.build();
+    }
 
     public String fetch(String requestUri) {
         try {
