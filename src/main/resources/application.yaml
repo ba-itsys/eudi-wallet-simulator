@@ -31,6 +31,8 @@ app:
   basepath:
   base-url: "http://localhost:8080"
   mode: "debug"
+  # test tool switch: outgoing https calls accept any certificate for any host
+  insecure-tls: false
   pki:
     dir: "data/pki"
     seed:

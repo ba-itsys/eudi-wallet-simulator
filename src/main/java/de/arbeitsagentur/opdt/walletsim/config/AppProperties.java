@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * into issued tokens and API responses.
  */
 @ConfigurationProperties(prefix = "app")
-public record AppProperties(String baseUrl, String basepath, ValidationMode mode) {
+public record AppProperties(String baseUrl, String basepath, ValidationMode mode, boolean insecureTls) {
 
     public AppProperties {
         baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
