@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.3...v1.3.0) (2026-08-21)
+
+
+### Features
+
+* add proxy support for backend calls ([c2b0cd4](https://github.com/ba-itsys/eudi-wallet-simulator/commit/c2b0cd44736710098ebab42af9a115750dfefcf4))
+
 ## [1.2.3](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.2...v1.2.3) (2026-08-21)
 
 
