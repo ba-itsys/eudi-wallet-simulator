@@ -164,7 +164,7 @@ same form values directly. `examples/keycloak/smoke-test.sh` drives the whole lo
 | `app.pki.dir` | `data/pki` | PEM directory for the persisted CA, issuer, wallet provider and registrar keys |
 | `app.pki.seed` | *(empty)* | Derives all key material from this value in memory instead of persisting it. See below |
 | `app.resources.credentials` | `classpath:credentials.yml` | Pre defined credential seed. Any Spring resource works, for example `file:my-credentials.yml` |
-| `app.basepath` | *(empty)* | URL prefix when deployed behind a path rewriting ingress |
+| `app.basepath` | *(empty)* | URL prefix when deployed behind a path rewriting ingress. Appended to the base URL in issued tokens |
 | `app.insecure-tls` | `false` | Accepts any certificate for any host on outgoing https calls. See below |
 | `app.env` | `localDEV` | Environment label shown in the navbar |
 | `app.web.title` | `EUDI Wallet Simulator` | Page title and navbar heading |

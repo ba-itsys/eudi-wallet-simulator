@@ -47,7 +47,7 @@ public class RegistrationCertificateService {
         try {
             Instant now = Instant.now();
             JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
-                    .issuer(properties.baseUrl() + "/registrar")
+                    .issuer(properties.externalUrl() + "/registrar")
                     .subject(clientId)
                     .issueTime(Date.from(now))
                     .notBeforeTime(Date.from(now))
