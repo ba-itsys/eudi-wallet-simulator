@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.3.0...v1.4.0) (2026-08-24)
+
+
+### Features
+
+* allow insecure-tls ([c1f4641](https://github.com/ba-itsys/eudi-wallet-simulator/commit/c1f4641bb0a52c67282962670185f06959d42641))
+
 ## [1.3.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.2.3...v1.3.0) (2026-08-21)
 
 
