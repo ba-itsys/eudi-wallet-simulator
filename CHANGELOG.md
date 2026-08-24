@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.4.0...v1.4.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* add baseurl+path to all url references (statuslist, registrar) ([f14072b](https://github.com/ba-itsys/eudi-wallet-simulator/commit/f14072bf6376e9538c7df144cf5be2187486fce0))
+
 ## [1.4.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.3.0...v1.4.0) (2026-08-24)
 
 
