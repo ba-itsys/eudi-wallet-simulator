@@ -51,7 +51,7 @@ public class SdJwtIssuer {
 
             Instant now = Instant.now();
             JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
-                    .issuer(properties.baseUrl())
+                    .issuer(properties.externalUrl())
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(definition.validityDays(), ChronoUnit.DAYS)))
                     .claim("vct", definition.vct())

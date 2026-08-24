@@ -52,7 +52,7 @@ public class StatusListService {
             Instant now = Instant.now();
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
                     .subject(properties.statusListUri())
-                    .issuer(properties.baseUrl())
+                    .issuer(properties.externalUrl())
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(24, ChronoUnit.HOURS)))
                     .claim("ttl", TTL_SECONDS)
