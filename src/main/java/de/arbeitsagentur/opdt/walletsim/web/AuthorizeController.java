@@ -15,7 +15,8 @@ import de.arbeitsagentur.opdt.walletsim.oid4vp.DcqlMatcher;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.InvalidRequestException;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.PresentationPlan;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.QuerySlot;
-import de.arbeitsagentur.opdt.walletsim.oid4vp.RequestObjectClient;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.RequestObjectRetrieval;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.RequestObjectRetriever;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ResponseSubmitter;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SdJwtPresentationBuilder;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.SetChoice;
@@ -52,7 +53,7 @@ public class AuthorizeController {
 
     private static final Logger LOG = LoggerFactory.getLogger(AuthorizeController.class);
 
-    private final RequestObjectClient requestObjectClient;
+    private final RequestObjectRetriever requestObjectRetriever;
     private final RequestObjectValidator validator;
     private final AppProperties properties;
     private final DcqlMatcher dcqlMatcher;
@@ -64,7 +65,7 @@ public class AuthorizeController {
     private final CredentialStore credentialStore;
 
     public AuthorizeController(
-            RequestObjectClient requestObjectClient,
+            RequestObjectRetriever requestObjectRetriever,
             RequestObjectValidator validator,
             AppProperties properties,
             DcqlMatcher dcqlMatcher,
@@ -74,7 +75,7 @@ public class AuthorizeController {
             WalletCredentialService credentialService,
             SinglePresentationCredentials singlePresentationCredentials,
             CredentialStore credentialStore) {
-        this.requestObjectClient = requestObjectClient;
+        this.requestObjectRetriever = requestObjectRetriever;
         this.validator = validator;
         this.properties = properties;
         this.dcqlMatcher = dcqlMatcher;
@@ -88,12 +89,15 @@ public class AuthorizeController {
 
     @GetMapping("/authorize")
     public String authorize(
-            @RequestParam("client_id") String clientId, @RequestParam("request_uri") String requestUri, Model model) {
-        String requestObjectJwt = requestObjectClient.fetch(requestUri);
-        AuthorizationRequest request = AuthorizationRequest.parse(requestObjectJwt);
+            @RequestParam("client_id") String clientId,
+            @RequestParam("request_uri") String requestUri,
+            @RequestParam(name = "request_uri_method", required = false) String requestUriMethod,
+            Model model) {
+        RequestObjectRetrieval retrieval = requestObjectRetriever.retrieve(requestUri, requestUriMethod);
+        AuthorizationRequest request = AuthorizationRequest.parse(retrieval.requestObjectJwt());
         LOG.info("Received authorization request from {} via {}", request.clientId(), requestUri);
 
-        List<Finding> findings = validator.validate(clientId, request);
+        List<Finding> findings = validator.validate(clientId, request, retrieval);
         findings.forEach(finding -> LOG.warn("Request does not conform to OID4VP: {}", finding.message()));
         if (properties.mode() == ValidationMode.STRICT && !findings.isEmpty()) {
             return refuseNonConformantRequest(request, findings, model);

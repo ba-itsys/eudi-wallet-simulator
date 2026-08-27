@@ -33,6 +33,7 @@
         "clientId": "not-used",
         "clientSecret": "not-used",
         "responseMode": "direct_post.jwt",
+        "requestUriMethodPost": "true",
         "credentialSets": "[{\"options\": [[\"pid\", \"ehic\"], [\"pid\"]]}]",
         "clientIdScheme": "x509_hash",
         "trustMaterialIdps": "etsi-trust-list",

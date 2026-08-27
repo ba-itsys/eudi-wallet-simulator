@@ -5,7 +5,7 @@
 set -eu
 
 EXAMPLE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-EXTENSION_VERSION="${EXTENSION_VERSION:-0.9.1}"
+EXTENSION_VERSION="${EXTENSION_VERSION:-0.11.1}"
 EXTENSION_JAR="${EXAMPLE_DIR}/keycloak-extension-oid4vp.jar"
 EXTENSION_URL="https://repo1.maven.org/maven2/de/arbeitsagentur/opdt/keycloak-extension-oid4vp/${EXTENSION_VERSION}/keycloak-extension-oid4vp-${EXTENSION_VERSION}.jar"
 

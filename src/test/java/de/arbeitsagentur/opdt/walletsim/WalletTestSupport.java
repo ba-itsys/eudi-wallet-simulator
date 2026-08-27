@@ -41,10 +41,14 @@ public final class WalletTestSupport {
 
     // the client_id of the wallet link can differ from the one in the request object
     public static URI authorizeUri(int port, TestVerifier verifier, String clientId) {
+        String methodParam = verifier.requestUriMethod() == null
+                ? ""
+                : "&request_uri_method=" + URLEncoder.encode(verifier.requestUriMethod(), StandardCharsets.UTF_8);
         return URI.create("http://localhost:" + port + "/authorize?client_id="
                 + URLEncoder.encode(clientId, StandardCharsets.UTF_8)
                 + "&request_uri="
-                + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
+                + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8)
+                + methodParam);
     }
 
     // the issuer signed JWT of an SD-JWT, with the disclosures and any key binding JWT stripped
