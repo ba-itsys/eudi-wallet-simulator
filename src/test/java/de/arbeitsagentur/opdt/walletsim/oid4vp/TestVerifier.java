@@ -1,9 +1,14 @@
 package de.arbeitsagentur.opdt.walletsim.oid4vp;
 
+import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWEAlgorithm;
+import com.nimbusds.jose.JWEHeader;
+import com.nimbusds.jose.JWEObject;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.Payload;
+import com.nimbusds.jose.crypto.ECDHEncrypter;
 import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.ECKey;
@@ -79,6 +84,13 @@ public final class TestVerifier implements AutoCloseable {
     private boolean omitRedirectUri;
     private int rejectionStatus;
     private String rejectionBody;
+    private String requestUriMethod;
+    private boolean omitWalletNonceEcho;
+    private boolean omitRequestObjectEncryption;
+    private volatile String receivedWalletNonce;
+    private volatile String receivedWalletMetadata;
+    private volatile String lastRequestObjectMethod;
+    private volatile boolean servedEncryptedRequestObject;
 
     public TestVerifier(String dcqlQueryJson) throws Exception {
         this.dcqlQueryJson = dcqlQueryJson;
@@ -86,7 +98,11 @@ public final class TestVerifier implements AutoCloseable {
         this.certificate = selfSignedWithSanDns(keyPair, "verifier.example.com");
         this.server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         server.createContext("/request-object", exchange -> {
-            byte[] body = requestObjectJwt().getBytes(StandardCharsets.UTF_8);
+            lastRequestObjectMethod = exchange.getRequestMethod();
+            String served = "POST".equals(exchange.getRequestMethod())
+                    ? postedRequestObject(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
+                    : requestObjectJwt(null);
+            byte[] body = served.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/oauth-authz-req+jwt");
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream out = exchange.getResponseBody()) {
@@ -140,6 +156,46 @@ public final class TestVerifier implements AutoCloseable {
             return rejectionBody;
         }
         return omitRedirectUri ? "{}" : "{\"redirect_uri\":\"" + redirectUri() + "\"}";
+    }
+
+    // advertises request_uri_method=post in the wallet link, like the keycloak extension with
+    // requestUriMethodPost enabled: a POST echoes the wallet_nonce into the request object and
+    // encrypts it to the key wallet_metadata.jwks names
+    public TestVerifier withRequestUriMethodPost() {
+        this.requestUriMethod = "post";
+        return this;
+    }
+
+    // a non-conformant verifier that does not echo the posted wallet_nonce (OID4VP 1.0 §5.10.1)
+    public TestVerifier withoutWalletNonceEcho() {
+        this.omitWalletNonceEcho = true;
+        return this;
+    }
+
+    // a verifier that ignores the wallet's encryption keys and serves the signed request object
+    public TestVerifier withoutRequestObjectEncryption() {
+        this.omitRequestObjectEncryption = true;
+        return this;
+    }
+
+    public String requestUriMethod() {
+        return requestUriMethod;
+    }
+
+    public String receivedWalletNonce() {
+        return receivedWalletNonce;
+    }
+
+    public String receivedWalletMetadata() {
+        return receivedWalletMetadata;
+    }
+
+    public String lastRequestObjectMethod() {
+        return lastRequestObjectMethod;
+    }
+
+    public boolean servedEncryptedRequestObject() {
+        return servedEncryptedRequestObject;
     }
 
     // Adds a verifier_info claim, e.g. the value from the simulator's registration certificate API.
@@ -202,7 +258,57 @@ public final class TestVerifier implements AutoCloseable {
         return "http://localhost:" + server.getAddress().getPort();
     }
 
-    private String requestObjectJwt() {
+    // answers a request_uri_method=post fetch the way keycloak-extension-oid4vp 0.11.1 does:
+    // the posted wallet_nonce becomes a request object claim, and the request object is
+    // encrypted to the first key of wallet_metadata.jwks when the wallet names one
+    private String postedRequestObject(String formBody) {
+        Map<String, String> form = parseForm(formBody);
+        receivedWalletNonce = form.get("wallet_nonce");
+        receivedWalletMetadata = form.get("wallet_metadata");
+        String signedJwt = requestObjectJwt(omitWalletNonceEcho ? null : receivedWalletNonce);
+        if (omitRequestObjectEncryption || receivedWalletMetadata == null) {
+            return signedJwt;
+        }
+        return encryptToWalletKey(signedJwt, receivedWalletMetadata);
+    }
+
+    private String encryptToWalletKey(String signedJwt, String walletMetadataJson) {
+        try {
+            Map<?, ?> metadata = new ObjectMapper().readValue(walletMetadataJson, Map.class);
+            if (!(metadata.get("jwks") instanceof Map<?, ?> jwks) || !(jwks.get("keys") instanceof List<?> keys)) {
+                return signedJwt;
+            }
+            ECKey walletKey = ECKey.parse(new ObjectMapper().writeValueAsString(keys.getFirst()));
+            JWEAlgorithm algorithm = walletKey.getAlgorithm() != null
+                    ? JWEAlgorithm.parse(walletKey.getAlgorithm().getName())
+                    : JWEAlgorithm.ECDH_ES;
+            JWEObject jwe = new JWEObject(
+                    new JWEHeader.Builder(algorithm, encryptionMethodOf(metadata))
+                            .contentType(requestObjectTyp)
+                            .keyID(walletKey.getKeyID())
+                            .build(),
+                    new Payload(signedJwt));
+            jwe.encrypt(new ECDHEncrypter(walletKey));
+            servedEncryptedRequestObject = true;
+            return jwe.serialize();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    // the extension takes the first advertised method it supports and falls back to A128GCM
+    private static EncryptionMethod encryptionMethodOf(Map<?, ?> metadata) {
+        if (metadata.get("request_object_encryption_enc_values_supported") instanceof List<?> advertised) {
+            for (Object enc : advertised) {
+                if ("A128GCM".equals(enc) || "A256GCM".equals(enc)) {
+                    return EncryptionMethod.parse(enc.toString());
+                }
+            }
+        }
+        return EncryptionMethod.A128GCM;
+    }
+
+    private String requestObjectJwt(String walletNonceToEcho) {
         try {
             Instant now = Instant.now();
             Map<String, Object> claims = new LinkedHashMap<>();
@@ -216,6 +322,9 @@ public final class TestVerifier implements AutoCloseable {
             claims.put("nonce", nonce);
             claims.put("state", state);
             claims.put("client_metadata", clientMetadata());
+            if (walletNonceToEcho != null) {
+                claims.put("wallet_nonce", walletNonceToEcho);
+            }
             claims.put("dcql_query", new ObjectMapper().readValue(dcqlQueryJson, Map.class));
             if (verifierInfoJson != null) {
                 claims.put("verifier_info", new ObjectMapper().readValue(verifierInfoJson, List.class));

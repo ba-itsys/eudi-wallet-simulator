@@ -1,7 +1,7 @@
 # Keycloak example
 
 Runs a real [keycloak-extension-oid4vp](https://github.com/ba-itsys/keycloak-extension-oid4vp)
-verifier against this wallet simulator. The setup downloads release 0.9.1 of the extension from
+verifier against this wallet simulator. The setup downloads release 0.11.1 of the extension from
 Maven Central, override it with EXTENSION_VERSION when running setup.sh. A jar placed next to
 setup.sh is used as is, which is how a locally built snapshot goes in.
 
@@ -85,6 +85,20 @@ fails at the verifier, and the simulator shows the verifier's reason on its erro
 
 The admin console is at <http://localhost:8080/admin> with user `admin` and password `admin`.
 
+## Request object over POST
+
+The realm enables `requestUriMethodPost`:
+
+```json
+"requestUriMethodPost": "true"
+```
+
+The wallet link then carries `request_uri_method=post` per OID4VP 1.0 section 5.10. The simulator
+fetches the request object with a form encoded POST that sends a `wallet_nonce` and a
+`wallet_metadata` with an ephemeral encryption key. The extension echoes the nonce into the
+request object and encrypts it to that key. The simulator decrypts the answer and validates the
+echo. This needs extension 0.11.1 or newer. Remove the setting for a plain GET fetch.
+
 ## Login timeout
 
 A demo login takes longer than a real one, because the picker is where you read the request and
@@ -135,8 +149,8 @@ edit them. `unmanagedAttributePolicy` set to `ENABLED` is the alternative to dec
 ## Trying revocation
 
 ```sh
-# Revoke Maria's PID. The verifier checks the status list on every login.
-curl -X POST http://localhost:8081/api/credentials/pid-maria-neumann/status \
+# Revoke Jan's PID. The verifier checks the status list on every login.
+curl -X POST http://localhost:8081/api/credentials/pid-jan-hart/status \
   -H 'Content-Type: application/json' -d '{"status": 1}'
 ```
 

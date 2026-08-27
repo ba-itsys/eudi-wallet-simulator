@@ -13,6 +13,7 @@ public record AuthorizationRequest(
         String responseUri,
         String nonce,
         String state,
+        String walletNonce,
         Map<String, Object> dcqlQuery,
         Map<String, Object> clientMetadata) {
 
@@ -28,6 +29,7 @@ public record AuthorizationRequest(
                     stringClaim(claims, "response_uri"),
                     stringClaim(claims, "nonce"),
                     stringClaim(claims, "state"),
+                    stringClaim(claims, "wallet_nonce"),
                     mapClaim(claims, "dcql_query"),
                     mapClaim(claims, "client_metadata"));
         } catch (ParseException e) {

@@ -6,6 +6,7 @@ import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.AuthorizationRequest;
 import de.arbeitsagentur.opdt.walletsim.oid4vp.ClientMetadataKeys;
+import de.arbeitsagentur.opdt.walletsim.oid4vp.RequestObjectRetrieval;
 import de.arbeitsagentur.opdt.walletsim.registrar.RegistrationCertificateService;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -37,9 +38,12 @@ public class RequestObjectValidator {
         this.registrationCertificates = registrationCertificates;
     }
 
-    public List<Finding> validate(String queryClientId, AuthorizationRequest request) {
+    public List<Finding> validate(
+            String queryClientId, AuthorizationRequest request, RequestObjectRetrieval retrieval) {
         List<Finding> findings = new ArrayList<>();
         SignedJWT jwt = parse(request.rawRequestObject());
+
+        validateRetrieval(retrieval, request, findings);
 
         if (jwt.getHeader().getType() == null
                 || !REQUEST_OBJECT_TYP.equals(jwt.getHeader().getType().toString())) {
@@ -66,6 +70,27 @@ public class RequestObjectValidator {
         validateRequestObjectClaims(jwt, findings);
         validateClientMetadata(request, findings);
         return findings;
+    }
+
+    // checks tied to how the request object was fetched
+    private static void validateRetrieval(
+            RequestObjectRetrieval retrieval, AuthorizationRequest request, List<Finding> findings) {
+        if (retrieval.unknownMethod()) {
+            findings.add(new Finding("request_uri_method '" + retrieval.requestUriMethod()
+                    + "' is not defined by OID4VP 1.0 §5.1, the request object was fetched with GET"));
+        }
+        if (retrieval.sentWalletNonce() != null && !retrieval.sentWalletNonce().equals(request.walletNonce())) {
+            findings.add(
+                    new Finding(
+                            request.walletNonce() == null
+                                    ? "The request object does not echo the posted wallet_nonce as a wallet_nonce claim (OID4VP 1.0 §5.10.1)"
+                                    : "The request object wallet_nonce claim does not match the posted wallet_nonce (OID4VP 1.0 §5.10.1)"));
+        }
+        if (retrieval.encryptionRequested() && !retrieval.encrypted()) {
+            findings.add(
+                    new Finding(
+                            "The wallet asked for an encrypted request object via wallet_metadata.jwks but received an unencrypted one (OID4VP 1.0 §5.10)"));
+        }
     }
 
     private static void validateRequestObjectClaims(SignedJWT jwt, List<Finding> findings) {

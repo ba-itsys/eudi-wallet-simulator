@@ -33,7 +33,7 @@ esac
 
 echo "3/5 Opening the simulator credential picker..."
 PICKER=$(curl -sS "$WALLET_URL" | tr '\n' ' ')
-printf '%s' "$PICKER" | grep -q 'data-credential-id="pid-maria-neumann"' || fail "picker does not offer the PID credential"
+printf '%s' "$PICKER" | grep -q 'data-credential-id="pid-jan-hart"' || fail "picker does not offer the PID credential"
 FLOW_STATE=$(printf '%s' "$PICKER" | grep -o 'name="flowState" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"$//')
 [ -n "$FLOW_STATE" ] || fail "no flowState on the picker page"
 
