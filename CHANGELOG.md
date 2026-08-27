@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.4.1...v1.5.0) (2026-08-27)
+
+
+### Features
+
+* show the sent dcql query in a collapsible debug pane on the consent ui ([18e20cf](https://github.com/ba-itsys/eudi-wallet-simulator/commit/18e20cf49a5805c08811b40aceaf94f33bae0604))
+* support request_uri_method=post with encrypted request objects ([d92dc2c](https://github.com/ba-itsys/eudi-wallet-simulator/commit/d92dc2c644cb22f81026be121e88c35bae088257))
+
 ## [1.4.1](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.4.0...v1.4.1) (2026-08-24)
 
 

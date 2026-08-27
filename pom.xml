@@ -3,7 +3,7 @@
 
     <groupId>de.arbeitsagentur.opdt</groupId>
     <artifactId>wallet-simulator</artifactId>
-    <version>1.4.2-SNAPSHOT</version>
+    <version>1.5.0</version>
     <packaging>jar</packaging>
 
     <name>EUDI Wallet Simulator</name>
