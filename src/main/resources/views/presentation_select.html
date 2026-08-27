@@ -100,6 +100,11 @@
         <button type="submit" class="btn btn-secondary" id="cancel-presentation" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>
     </form>
+
+    <details id="dcql-debug" class="mt-4" data-th-if="${dcqlJson}">
+        <summary class="text-muted">DCQL query sent by the verifier</summary>
+        <pre class="border rounded p-2 mt-2 mb-0"><code data-th-text="${dcqlJson}">dcql</code></pre>
+    </details>
 </div>
 <script src="" data-th-src="@{__${basepath}__/js/alternatives.js}"></script>
 <footer data-th-replace="~{fragments/snippets :: footer}"></footer>
