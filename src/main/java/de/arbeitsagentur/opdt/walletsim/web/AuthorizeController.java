@@ -39,6 +39,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * The wallet's web entry point for OID4VP: a verifier link opens the credential picker with one
@@ -63,6 +64,7 @@ public class AuthorizeController {
     private final WalletCredentialService credentialService;
     private final SinglePresentationCredentials singlePresentationCredentials;
     private final CredentialStore credentialStore;
+    private final ObjectMapper objectMapper;
 
     public AuthorizeController(
             RequestObjectRetriever requestObjectRetriever,
@@ -74,7 +76,8 @@ public class AuthorizeController {
             CredentialEditForms editForms,
             WalletCredentialService credentialService,
             SinglePresentationCredentials singlePresentationCredentials,
-            CredentialStore credentialStore) {
+            CredentialStore credentialStore,
+            ObjectMapper objectMapper) {
         this.requestObjectRetriever = requestObjectRetriever;
         this.validator = validator;
         this.properties = properties;
@@ -85,6 +88,7 @@ public class AuthorizeController {
         this.credentialService = credentialService;
         this.singlePresentationCredentials = singlePresentationCredentials;
         this.credentialStore = credentialStore;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/authorize")
@@ -356,12 +360,21 @@ public class AuthorizeController {
     private String renderPicker(
             AuthorizationRequest request, PresentationPlan plan, PickerSelection selection, Model model) {
         model.addAttribute("verifierClientId", request.clientId());
+        model.addAttribute("dcqlJson", prettyDcql(request));
         model.addAttribute("slots", plan.slots());
         model.addAttribute("setChoices", plan.setChoices());
         model.addAttribute("satisfiable", plan.satisfiable());
         model.addAttribute("flowState", request.rawRequestObject());
         model.addAttribute("selection", selection);
         return "presentation_select";
+    }
+
+    // the DCQL query as the verifier sent it
+    private String prettyDcql(AuthorizationRequest request) {
+        if (request.dcqlQuery() == null) {
+            return null;
+        }
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(request.dcqlQuery());
     }
 
     private PresentationPlan plan(AuthorizationRequest request) {

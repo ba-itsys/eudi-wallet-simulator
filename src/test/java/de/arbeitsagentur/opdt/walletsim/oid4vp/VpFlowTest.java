@@ -120,6 +120,22 @@ class VpFlowTest {
     }
 
     @Test
+    void pickerShowsTheSentDcqlQueryInACollapsibleDebugPane() throws Exception {
+        try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
+            URI authorizeUrl = URI.create("http://localhost:" + port + "/authorize?client_id="
+                    + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
+                    + "&request_uri="
+                    + URLEncoder.encode(verifier.requestUri(), StandardCharsets.UTF_8));
+
+            String picker = client(port).get().uri(authorizeUrl).retrieve().body(String.class);
+
+            assertThat(picker).contains("<details id=\"dcql-debug\"");
+            assertThat(picker).contains("&quot;vct_values&quot;");
+            assertThat(picker).contains("urn:eudi:pid:1");
+        }
+    }
+
+    @Test
     void crossDeviceCompletionRendersWhenNoRedirectUriIsReturned() throws Exception {
         try (TestVerifier verifier = new TestVerifier(DCQL_QUERY).withoutRedirectUri()) {
             URI authorizeUrl = URI.create("http://localhost:" + port + "/authorize?client_id="
