@@ -31,7 +31,8 @@ public class SinglePresentationCredentials {
             List<String> alwaysDisclosedClaims,
             String sdJwt,
             int statusIndex,
-            String holderKey) {}
+            String holderKey,
+            boolean untrustedIssuer) {}
 
     private static final TypeReference<List<Payload>> PAYLOAD_LIST = new TypeReference<>() {};
 
@@ -51,7 +52,8 @@ public class SinglePresentationCredentials {
                         credential.alwaysDisclosedClaims(),
                         credential.sdJwt(),
                         credential.statusIndex(),
-                        credential.holderKey().toJSONString()))
+                        credential.holderKey().toJSONString(),
+                        credential.untrustedIssuer()))
                 .toList();
         return Base64URL.encode(objectMapper.writeValueAsBytes(payloads)).toString();
     }
@@ -102,6 +104,7 @@ public class SinglePresentationCredentials {
                 payload.sdJwt(),
                 payload.statusIndex(),
                 ECKey.parse(payload.holderKey()),
-                CredentialSource.SINGLE_PRESENTATION);
+                CredentialSource.SINGLE_PRESENTATION,
+                payload.untrustedIssuer());
     }
 }

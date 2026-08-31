@@ -65,6 +65,8 @@ import org.springframework.stereotype.Component;
  * certificates without touching the filesystem.
  * Without a seed, the material is persisted as PEM files under {@code app.pki.dir} and reloaded
  * on restart. Either way, the trust list and registration certificates stay valid across restarts.
+ * An additional self signed untrusted issuer, generated fresh in memory on every start, signs
+ * credentials that are meant to fail the verifier's trust checks.
  */
 @Component
 public class SimulatorPki {
@@ -73,6 +75,8 @@ public class SimulatorPki {
     private static final X500Name ISSUER_NAME = new X500Name("CN=EUDI Wallet Simulator Issuer,O=EUDI Wallet Simulator");
     private static final X500Name REGISTRAR_NAME =
             new X500Name("CN=EUDI Wallet Simulator Registrar,O=EUDI Wallet Simulator");
+    private static final X500Name UNTRUSTED_ISSUER_NAME =
+            new X500Name("CN=EUDI Wallet Simulator Untrusted Issuer,O=EUDI Wallet Simulator");
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private static final String HKDF_SALT = "eudi-wallet-simulator-pki";
@@ -91,6 +95,8 @@ public class SimulatorPki {
     private final X509Certificate issuerCertificate;
     private final KeyPair registrarKeyPair;
     private final X509Certificate registrarCertificate;
+    private final KeyPair untrustedIssuerKeyPair;
+    private final X509Certificate untrustedIssuerCertificate;
 
     public SimulatorPki(@Value("${app.pki.dir}") Path pkiDir, @Value("${app.pki.seed:}") String seed) {
         try {
@@ -118,6 +124,10 @@ public class SimulatorPki {
                         () -> leafCertificate(
                                 REGISTRAR_NAME, registrarKeyPair, caKeyPair, caCertificate, randomLeafStamp()));
             }
+            // ad hoc and in memory only: this issuer is anchored nowhere, so credentials signed
+            // with it fail every trust check a verifier runs
+            this.untrustedIssuerKeyPair = generateEcKeyPair();
+            this.untrustedIssuerCertificate = selfSignedUntrustedIssuer(untrustedIssuerKeyPair);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to initialize simulator PKI in " + pkiDir, e);
         }
@@ -147,16 +157,27 @@ public class SimulatorPki {
         return registrarKeyPair.getPrivate();
     }
 
+    public X509Certificate untrustedIssuerCertificate() {
+        return untrustedIssuerCertificate;
+    }
+
+    public PrivateKey untrustedIssuerPrivateKey() {
+        return untrustedIssuerKeyPair.getPrivate();
+    }
+
     // Fresh P-256 binding key for a single credential (cnf.jwk); never persisted.
     public ECKey generateCredentialBindingKey() {
         try {
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
-            generator.initialize(new ECGenParameterSpec("secp256r1"));
-            KeyPair keyPair = generator.generateKeyPair();
-            return toEcKey(keyPair);
+            return toEcKey(generateEcKeyPair());
         } catch (Exception e) {
             throw new IllegalStateException("Failed to generate credential binding key", e);
         }
+    }
+
+    private static KeyPair generateEcKeyPair() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
+        generator.initialize(new ECGenParameterSpec("secp256r1"));
+        return generator.generateKeyPair();
     }
 
     private static ECKey toEcKey(KeyPair keyPair) {
@@ -216,9 +237,7 @@ public class SimulatorPki {
                 return new KeyPair(converter.getPublicKey(publicKeyInfo), converter.getPrivateKey(privateKeyInfo));
             }
         }
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
-        generator.initialize(new ECGenParameterSpec("secp256r1"));
-        KeyPair keyPair = generator.generateKeyPair();
+        KeyPair keyPair = generateEcKeyPair();
         writePem(privateKeyFile, new JcaPKCS8Generator(keyPair.getPrivate(), null));
         writePem(publicKeyFile, keyPair.getPublic());
         return keyPair;
@@ -333,6 +352,25 @@ public class SimulatorPki {
                 CA_NAME, stamp.serial(), stamp.notBefore(), stamp.notAfter(), CA_NAME, keyPair.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+        JcaX509ExtensionUtils extensionUtils = new JcaX509ExtensionUtils();
+        builder.addExtension(
+                Extension.subjectKeyIdentifier, false, extensionUtils.createSubjectKeyIdentifier(keyPair.getPublic()));
+        return new JcaX509CertificateConverter()
+                .getCertificate(builder.build(stamp.signer().create(keyPair.getPrivate())));
+    }
+
+    // a self signed leaf outside the simulator CA, for provoking trust failures at the verifier
+    private static X509Certificate selfSignedUntrustedIssuer(KeyPair keyPair) throws Exception {
+        CertificateStamp stamp = randomLeafStamp();
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                UNTRUSTED_ISSUER_NAME,
+                stamp.serial(),
+                stamp.notBefore(),
+                stamp.notAfter(),
+                UNTRUSTED_ISSUER_NAME,
+                keyPair.getPublic());
+        builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
+        builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
         JcaX509ExtensionUtils extensionUtils = new JcaX509ExtensionUtils();
         builder.addExtension(
                 Extension.subjectKeyIdentifier, false, extensionUtils.createSubjectKeyIdentifier(keyPair.getPublic()));

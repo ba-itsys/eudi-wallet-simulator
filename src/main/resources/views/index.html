@@ -27,7 +27,10 @@
                             <strong data-th-text="${card.credential.name}">Credential</strong>
                             <span class="badge float-end"
                                   data-th-classappend="${card.status == 0} ? 'text-bg-success' : 'text-bg-danger'"
-                                  data-th-text="${card.status == 0} ? 'Active' : 'Revoked'">Active</span><br/>
+                                  data-th-text="${card.status == 0} ? 'Active' : 'Revoked'">Active</span>
+                            <span class="badge text-bg-danger"
+                                  data-th-if="${card.credential.untrustedIssuer}"
+                                  data-th-id="'untrusted-issuer-' + ${card.credential.id}">untrusted issuer</span><br/>
                             <span class="text-muted" data-th-text="${card.credential.vct}">vct</span><br/>
                             <small data-th-if="${!card.person.isEmpty()}" data-th-text="${card.person}">person</small><br/>
                             <small class="text-muted">ID:</small> <code data-th-text="${card.credential.id}">id</code>

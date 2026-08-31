@@ -21,6 +21,7 @@ public class CredentialEditForm {
     private Map<String, Boolean> claimAlwaysDisclosed = new LinkedHashMap<>();
     private String newClaimName;
     private String newClaimValue;
+    private boolean untrustedIssuer;
     private String flowState;
     private String singlePresentationCredentials;
     private Integer statusIndex;
@@ -30,8 +31,9 @@ public class CredentialEditForm {
     private Map<String, String> selection = new LinkedHashMap<>();
     private Map<String, String> setOption = new LinkedHashMap<>();
     private Map<String, String> claimSet = new LinkedHashMap<>();
+    private boolean showAll;
 
     public PickerSelection pickerSelection() {
-        return new PickerSelection(selection, setOption, claimSet);
+        return new PickerSelection(selection, setOption, claimSet, showAll);
     }
 }

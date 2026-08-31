@@ -47,8 +47,10 @@ class TrustedAuthoritiesTest {
                     .uri(authorizeUri(port, verifier))
                     .retrieve()
                     .body(String.class);
-            assertThat(picker).doesNotContain("data-credential-id");
             assertThat(picker).contains("No credential");
+            assertThat(picker)
+                    .as("credentials appear only as non-matching offers")
+                    .contains("id=\"mismatch-pid-pid-jan-hart\"");
         }
     }
 
@@ -74,7 +76,9 @@ class TrustedAuthoritiesTest {
                     .uri(authorizeUri(port, verifier))
                     .retrieve()
                     .body(String.class);
-            assertThat(picker).doesNotContain("data-credential-id");
+            assertThat(picker)
+                    .as("credentials appear only as non-matching offers")
+                    .contains("id=\"mismatch-pid-pid-jan-hart\"");
         }
     }
 

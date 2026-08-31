@@ -14,6 +14,7 @@ public record CredentialResponse(
         List<String> alwaysDisclosedClaims,
         String sdJwt,
         String source,
+        boolean untrustedIssuer,
         StatusReference status) {
 
     public static CredentialResponse of(StoredCredential credential, String statusListUri, int status) {
@@ -26,6 +27,7 @@ public record CredentialResponse(
                 credential.alwaysDisclosedClaims(),
                 credential.sdJwt(),
                 credential.source().name(),
+                credential.untrustedIssuer(),
                 StatusReference.of(statusListUri, credential.statusIndex(), status));
     }
 }

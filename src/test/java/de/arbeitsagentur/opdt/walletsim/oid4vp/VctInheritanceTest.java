@@ -60,23 +60,30 @@ class VctInheritanceTest {
             assertThat(picker).contains("data-credential-id=\"pid-thomas-bauer\"");
             assertThat(picker).contains("data-credential-id=\"pid-erika-mustermann\"");
             assertThat(picker)
+                    .as("the matching credentials carry no mismatch badge")
+                    .doesNotContain("mismatch-pid-pid-thomas-bauer")
+                    .doesNotContain("mismatch-pid-pid-erika-mustermann");
+            assertThat(picker)
                     .as("the base type does not extend the child type")
-                    .doesNotContain("data-credential-id=\"pid-jan-hart\"");
+                    .contains("id=\"mismatch-pid-pid-jan-hart\"");
             assertThat(picker)
                     .as("sibling country types do not extend each other")
-                    .doesNotContain("data-credential-id=\"pid-sofia-rossi\"");
+                    .contains("id=\"mismatch-pid-pid-sofia-rossi\"");
         }
     }
 
     @Test
-    void unrelatedVctRequestOffersNothing() throws Exception {
+    void unrelatedVctRequestOffersNoMatch() throws Exception {
         try (TestVerifier verifier = new TestVerifier(dcqlForVct("urn:eudi:diploma:1"))) {
             String picker = client(port)
                     .get()
                     .uri(authorizeUri(port, verifier))
                     .retrieve()
                     .body(String.class);
-            assertThat(picker).doesNotContain("data-credential-id");
+            assertThat(picker).contains("No credential in this wallet matches the verifier's query.");
+            assertThat(picker)
+                    .as("credentials appear only as non-matching offers behind the show all toggle")
+                    .contains("id=\"mismatch-pid-pid-jan-hart\"");
         }
     }
 

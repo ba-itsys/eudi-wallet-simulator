@@ -148,11 +148,11 @@ public class AuthorizeController {
                 continue;
             }
             String selectedId = form.getSelection().get(slot.queryId());
-            CredentialMatch match = slot.matches().stream()
-                    .filter(candidate -> candidate.credential().id().equals(selectedId))
-                    .findFirst()
-                    .orElseThrow(() -> new InvalidRequestException(
-                            "No matching credential selected for query '" + slot.queryId() + "'"));
+            // non-matching credentials are legitimate picks here, the point is testing how the
+            // verifier reacts to a wrong or incomplete answer
+            CredentialMatch match = slot.offerFor(selectedId)
+                    .orElseThrow(() ->
+                            new InvalidRequestException("No credential selected for query '" + slot.queryId() + "'"));
             selectedCredentials.put(slot.queryId(), match.credential().id());
             int claimSetIndex = chosenClaimSetIndex(form, slot.queryId());
             presentations.put(
@@ -205,8 +205,8 @@ public class AuthorizeController {
     private static Set<String> requestedQueryIds(PresentationPlan plan, SelectionForm form) {
         Set<String> requested = new LinkedHashSet<>(plan.alwaysRequestedQueryIds());
         for (SetChoice choice : plan.setChoices()) {
-            String value = form.getSetOption().getOrDefault(String.valueOf(choice.index()), "0");
-            if ("skip".equals(value) && !choice.required()) {
+            String value = form.getSetOption().getOrDefault(String.valueOf(choice.index()), choice.defaultValue());
+            if (SetChoice.SKIP_OPTION.equals(value) && !choice.required()) {
                 continue;
             }
             int optionIndex;
@@ -245,6 +245,7 @@ public class AuthorizeController {
         editForm.setSelection(form.getSelection());
         editForm.setSetOption(form.getSetOption());
         editForm.setClaimSet(form.getClaimSet());
+        editForm.setShowAll(form.isShowAll());
         return editView(editForm, model);
     }
 
@@ -270,13 +271,13 @@ public class AuthorizeController {
         List<StoredCredential> carried = singlePresentationCredentials.replacing(
                 carriedCredentials(form.getSinglePresentationCredentials()), credential);
         PresentationPlan plan = plan(request, carried);
-        boolean matchesAnyQuery = plan.slots().stream()
-                .flatMap(slot -> slot.matches().stream())
-                .anyMatch(match -> match.credential().id().equals(credential.id()));
-        if (!matchesAnyQuery) {
+        // a credential that does not satisfy any query is still offered behind the show all
+        // toggle, refused is only a credential that no rendered query slot can offer at all
+        boolean offeredAnywhere = plan.slots().stream()
+                .anyMatch(slot -> slot.offerFor(credential.id()).isPresent());
+        if (!offeredAnywhere) {
             model.addAttribute(
-                    "formError",
-                    "The credential was issued but does not match the verifier's query; adjust the claims or vct.");
+                    "formError", "The credential was issued but cannot answer any of the verifier's queries.");
             return editView(form, model);
         }
         LOG.info("Issued credential {} for this presentation only", credential.id());
@@ -285,19 +286,26 @@ public class AuthorizeController {
     }
 
     // the issued credential becomes the pick of the query it was created for, every other query
-    // keeps the credential the user had chosen before the edit
+    // keeps the credential the user had chosen before the edit. When it does not satisfy that
+    // query, show all turns on so the selected card is visible
     private static PickerSelection selectionWithIssuedCredential(
             CredentialEditForm form, PresentationPlan plan, String credentialId) {
-        List<String> answerableQueryIds = plan.slots().stream()
-                .filter(slot -> slot.matches().stream()
-                        .anyMatch(match -> match.credential().id().equals(credentialId)))
-                .map(QuerySlot::queryId)
+        List<QuerySlot> answerable = plan.slots().stream()
+                .filter(slot -> slot.offerFor(credentialId).isPresent())
                 .toList();
-        String editedQueryId = answerableQueryIds.stream()
-                .filter(queryId -> queryId.equals(form.getEditQueryId()))
+        QuerySlot editedSlot = answerable.stream()
+                .filter(slot -> slot.queryId().equals(form.getEditQueryId()))
                 .findFirst()
-                .orElseGet(answerableQueryIds::getFirst);
-        return form.pickerSelection().withCredential(editedQueryId, credentialId);
+                .or(() -> answerable.stream()
+                        .filter(slot -> slot.offerFor(credentialId)
+                                .map(CredentialMatch::matching)
+                                .orElse(false))
+                        .findFirst())
+                .orElseGet(answerable::getFirst);
+        PickerSelection selection = form.pickerSelection().withCredential(editedSlot.queryId(), credentialId);
+        boolean matching =
+                editedSlot.offerFor(credentialId).map(CredentialMatch::matching).orElse(false);
+        return matching ? selection : selection.withShowAll();
     }
 
     @PostMapping("/authorize/edit/cancel")
@@ -364,6 +372,8 @@ public class AuthorizeController {
         model.addAttribute("slots", plan.slots());
         model.addAttribute("setChoices", plan.setChoices());
         model.addAttribute("satisfiable", plan.satisfiable());
+        model.addAttribute("showAllAvailable", plan.slots().stream().anyMatch(slot -> !slot.nonMatches()
+                .isEmpty()));
         model.addAttribute("flowState", request.rawRequestObject());
         model.addAttribute("selection", selection);
         return "presentation_select";
