@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.5.0...v1.6.0) (2026-08-31)
+
+
+### Features
+
+* allow presentation of invalid credentials to test error cases ([b1b452a](https://github.com/ba-itsys/eudi-wallet-simulator/commit/b1b452a72d9ee84ed5ebe1bc9cfefaebf7a17c05))
+
 ## [1.5.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.4.1...v1.5.0) (2026-08-27)
 
 
