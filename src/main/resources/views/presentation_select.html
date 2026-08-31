@@ -25,6 +25,14 @@
             No credential in this wallet matches the verifier's query.
         </div>
 
+        <div class="form-check form-switch mb-3" data-th-if="${showAllAvailable}">
+            <input class="form-check-input" type="checkbox" id="show-all-credentials"
+                   name="showAll" value="true" data-th-checked="${selection.showAll}"/>
+            <label class="form-check-label" for="show-all-credentials">
+                Show credentials that do not match the request, for testing error answers
+            </label>
+        </div>
+
         <div class="row g-2 mb-3" data-th-each="choice : ${setChoices}"
              data-th-if="${choice.options.size() > 1 or !choice.required}">
             <div class="col-8 form-floating">
@@ -34,10 +42,10 @@
                     <option data-th-each="option, optionStat : ${choice.options}"
                             data-th-value="${option.index}"
                             data-th-attr="data-query-ids=${#strings.listJoin(option.queryIds, ',')}"
-                            data-th-selected="${selection.isSetOptionSelected(choice.index, option.index, optionStat.first)}"
-                            data-th-text="'Present ' + ${option.label}">option</option>
+                            data-th-selected="${selection.isSetOptionSelected(choice, option.index)}"
+                            data-th-text="'Present ' + ${option.label} + (${option.satisfiable} ? '' : ' (no matching credentials)')">option</option>
                     <option data-th-unless="${choice.required}" value="skip" data-query-ids=""
-                            data-th-selected="${selection.isSetOptionSkipped(choice.index)}">
+                            data-th-selected="${selection.isSetOptionSkipped(choice)}">
                         Do not present
                     </option>
                 </select>
@@ -45,7 +53,7 @@
             </div>
         </div>
 
-        <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.matches)}"
+        <div data-th-each="slot : ${slots}" data-th-if="${not #lists.isEmpty(slot.offers)}"
              data-th-attr="data-query-slot=${slot.queryId}">
             <h4 data-th-text="'Credentials for query ' + ${slot.queryId}">Credentials</h4>
             <div class="row g-2 mb-3" data-th-if="${slot.claimSetOptions.size() > 1}">
@@ -63,19 +71,29 @@
                 </div>
             </div>
             <div class="row row-cols-3 g-2 mb-3">
-                <div class="col" data-th-each="match, iterStat : ${slot.matches}">
+                <div class="col" data-th-each="match, iterStat : ${slot.offers}"
+                     data-th-attr="data-non-matching=${match.matching} ? null : 'true'"
+                     data-th-hidden="${!match.matching and !selection.showAll}">
                     <div class="card p-2 h-100" data-th-attr="data-credential-id=${match.credential.id}">
                         <div class="form-check">
                             <input class="form-check-input" type="radio"
                                    data-th-name="'selection[' + ${slot.queryId} + ']'"
                                    data-th-id="'select-' + ${slot.queryId} + '-' + ${match.credential.id}"
                                    data-th-value="${match.credential.id}"
-                                   data-th-checked="${selection.isCredentialSelected(slot.queryId, match.credential.id, iterStat.first)}"/>
+                                   data-th-checked="${selection.isCredentialSelected(slot.queryId, match.credential.id, iterStat.first and match.matching)}"/>
                             <label class="form-check-label w-100"
                                    data-th-for="'select-' + ${slot.queryId} + '-' + ${match.credential.id}">
                                 <strong data-th-text="${match.credential.name}">Credential</strong>
                                 <span class="badge text-bg-warning"
-                                      data-th-if="${match.credential.source.name() == 'SINGLE_PRESENTATION'}">modified for this presentation</span><br/>
+                                      data-th-if="${match.credential.source.name() == 'SINGLE_PRESENTATION'}">modified for this presentation</span>
+                                <span class="badge text-bg-danger"
+                                      data-th-if="${match.credential.untrustedIssuer}"
+                                      data-th-id="'untrusted-issuer-' + ${slot.queryId} + '-' + ${match.credential.id}">untrusted issuer</span>
+                                <span class="badge text-bg-danger"
+                                      data-th-unless="${match.matching}"
+                                      data-th-id="'mismatch-' + ${slot.queryId} + '-' + ${match.credential.id}"
+                                      data-th-title="${match.mismatchDetail}"
+                                      data-th-text="${match.mismatchSummary}">no match</span><br/>
                                 <span class="text-muted" data-th-text="${match.credential.vct}">vct</span><br/>
                                 <small data-th-each="option : ${match.claimSetOptions}"
                                        data-th-attr="data-claim-set-query=${slot.queryId},data-claim-set-option=${option.index}">Disclosed claims:
@@ -95,7 +113,8 @@
         </div>
 
         <button type="submit" class="btn btn-primary" id="present-credential" style="width:15rem"
-                data-th-disabled="${!satisfiable}"
+                data-th-disabled="${!satisfiable and !selection.showAll}"
+                data-th-attr="data-unsatisfiable=${satisfiable} ? null : 'true'"
                 data-th-text="${slots.size() > 1} ? 'Present credentials' : 'Present credential'">Present credential</button>
         <button type="submit" class="btn btn-secondary" id="cancel-presentation" style="width:15rem"
                 data-th-formaction="@{__${basepath}__/authorize/cancel}">Cancel</button>

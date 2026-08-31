@@ -13,6 +13,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import de.arbeitsagentur.opdt.walletsim.config.AppProperties;
 import de.arbeitsagentur.opdt.walletsim.pki.SimulatorPki;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -27,6 +29,8 @@ import org.springframework.stereotype.Component;
  * disclosable recursively, including nested objects and array elements. Claim paths listed as
  * always disclosed stay plain members of the JWT body, so every verifier sees them. The header
  * carries the leaf certificate only, the CA trust anchor is published via the trust list.
+ * Definitions marked untrustedIssuer are signed by the ad hoc untrusted issuer instead, which no
+ * trust list anchors.
  */
 @Component
 public class SdJwtIssuer {
@@ -62,12 +66,16 @@ public class SdJwtIssuer {
             }
             encodedClaims.forEach(claims::claim);
 
+            X509Certificate signingCertificate =
+                    definition.untrustedIssuer() ? pki.untrustedIssuerCertificate() : pki.issuerCertificate();
+            PrivateKey signingKey =
+                    definition.untrustedIssuer() ? pki.untrustedIssuerPrivateKey() : pki.issuerPrivateKey();
             JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES256)
                     .type(new JOSEObjectType(SD_JWT_VC_TYP))
-                    .x509CertChain(List.of(Base64.encode(pki.issuerCertificate().getEncoded())))
+                    .x509CertChain(List.of(Base64.encode(signingCertificate.getEncoded())))
                     .build();
             SignedJWT jwt = new SignedJWT(header, claims.build());
-            jwt.sign(new ECDSASigner((ECPrivateKey) pki.issuerPrivateKey()));
+            jwt.sign(new ECDSASigner((ECPrivateKey) signingKey));
 
             return new SDJWT(jwt.serialize(), disclosures).toString();
         } catch (Exception e) {

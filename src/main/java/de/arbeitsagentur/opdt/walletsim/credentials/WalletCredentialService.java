@@ -40,7 +40,8 @@ public class WalletCredentialService {
                 issuer.issue(definition, statusIndex, holderKey),
                 statusIndex == null ? -1 : statusIndex,
                 holderKey,
-                CredentialSource.SINGLE_PRESENTATION);
+                CredentialSource.SINGLE_PRESENTATION,
+                definition.untrustedIssuer());
     }
 
     public StoredCredential issue(CredentialDefinition definition, CredentialSource source) {
@@ -55,6 +56,7 @@ public class WalletCredentialService {
                 issuer.issue(definition, statusIndex, holderKey),
                 statusIndex,
                 holderKey,
-                source));
+                source,
+                definition.untrustedIssuer()));
     }
 }

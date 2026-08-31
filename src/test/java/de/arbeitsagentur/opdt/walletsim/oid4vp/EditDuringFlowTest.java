@@ -305,9 +305,11 @@ class EditDuringFlowTest {
                     hiddenField(editEhic(flowState, "First-Edit", "", pickerState), "singlePresentationCredentials");
             String pickerAfterSecondEdit = editEhic(flowState, "Second-Edit", carried, pickerState);
 
+            // every credential is also offered as a non-matching pick in the other slot, so the
+            // replacement check has to look at the ehic slot's own radio button
             assertThat(pickerAfterSecondEdit)
                     .as("the second edit replaces the first instead of adding a second candidate")
-                    .containsOnlyOnce("data-credential-id=\"ehic-erika-mustermann\"");
+                    .containsOnlyOnce("id=\"select-ehic-ehic-erika-mustermann\"");
             assertThat(tagAt(pickerAfterSecondEdit, "id=\"select-pid-pid-erika-mustermann\""))
                     .as("the query that was never edited keeps its wallet credential")
                     .contains("checked");
@@ -400,8 +402,10 @@ class EditDuringFlowTest {
         return html.substring(html.lastIndexOf('<', position), html.indexOf('>', position) + 1);
     }
 
+    // a deliberately broken credential is a test tool, so issuing it returns to the picker with
+    // show all turned on and the credential preselected as a non-matching offer
     @Test
-    void editedCredentialNotMatchingTheQueryRedisplaysFormWithError() throws Exception {
+    void editedCredentialNotMatchingTheQueryComesBackPreselectedBehindShowAll() throws Exception {
         try (TestVerifier verifier = new TestVerifier(DCQL_QUERY)) {
             URI authorizeUrl = URI.create("http://localhost:" + port + "/authorize?client_id="
                     + URLEncoder.encode(verifier.clientId(), StandardCharsets.UTF_8)
@@ -421,7 +425,13 @@ class EditDuringFlowTest {
                     .toEntity(String.class);
 
             assertThat(save.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(save.getBody()).contains("does not match the verifier");
+            assertThat(tagAt(save.getBody(), "id=\"show-all-credentials\"")).contains("checked");
+            int badge = save.getBody().indexOf("id=\"mismatch-pid-pid-no-family-name\"");
+            assertThat(badge).isNotNegative();
+            assertThat(save.getBody().substring(badge, save.getBody().indexOf("</span>", badge)))
+                    .contains("requested claims are missing");
+            assertThat(tagAt(save.getBody(), "id=\"select-pid-pid-no-family-name\""))
+                    .contains("checked");
         }
     }
 

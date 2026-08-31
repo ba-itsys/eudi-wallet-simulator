@@ -17,12 +17,13 @@ public class SelectionForm {
     private Map<String, String> claimSet = new LinkedHashMap<>();
     private String flowState;
     private String singlePresentationCredentials;
+    private boolean showAll;
 
     public Optional<String> firstSelectedCredentialId() {
         return selection.values().stream().filter(StringUtils::hasText).findFirst();
     }
 
     public PickerSelection pickerSelection() {
-        return new PickerSelection(selection, setOption, claimSet);
+        return new PickerSelection(selection, setOption, claimSet, showAll);
     }
 }

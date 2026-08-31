@@ -95,7 +95,8 @@ During a verification the picker shows one selection group per requested DCQL cr
 The evaluation covers vct and claim matching, claim_sets in preference order, credential_sets
 combinations and trusted_authorities (aki and etsi_tl). A trusted authority that points at one of
 the wallet's own trust lists is resolved locally, which keeps split host names between verifier
-and wallet from breaking the match. Credentials that do not match are not offered. The answer is a multi entry vp_token when several queries are requested.
+and wallet from breaking the match. Credentials that do not match are hidden behind the *Show
+credentials that do not match* toggle. The answer is a multi entry vp_token when several queries are requested.
 When the verifier accepts alternatives, you choose the outcome instead of the wallet deciding.
 Credential set options are offered as a choice, optional sets can be skipped, and every
 satisfiable claim set of a query is listed for selection.
@@ -117,6 +118,17 @@ Editing the same one again replaces the version the flow carries. These credenti
 the form and never enter the wallet, so a presentation flow cannot change what later requests see.
 Persistent credentials are created on the start page. Every issued credential gets a fresh holder
 binding key.
+
+### Testing error cases
+
+The *Show credentials that do not match* toggle on the picker reveals the credentials that do
+not satisfy a query. A badge names the failed checks, hovering it shows the full reasons.
+Picking one presents it anyway and discloses only the requested claims it has. Credential set
+options without matching credentials stay choosable and are marked.
+
+The credential editor has a *Sign with an untrusted issuer certificate* toggle. Such a
+credential is signed by an ad hoc self signed certificate that no trust list anchors, and its
+cards carry an *untrusted issuer* badge. A seed entry can set `untrustedIssuer: true`.
 
 Conformance warnings appear on the picker when the verifier request violates OID4VP or HAIP. In
 `strict` mode such requests are refused and the wallet answers the verifier with an
@@ -143,6 +155,12 @@ similar frameworks can rely on these selectors.
 | `#set-option-<setIndex>` | Credential set dropdown on the picker. Each option carries `data-query-ids`, a comma separated list. The value `skip` drops an optional set |
 | `[data-query-slot="<queryId>"]` | Row of one DCQL credential query on the picker. An option that names several query ids shows one row per id |
 | `#claim-set-<queryId>` | Claim set dropdown for a query on the picker |
+| `#show-all-credentials` | Toggle revealing the non matching credentials on the picker |
+| `[data-non-matching]` | Card of a non matching credential, hidden while the toggle is off |
+| `#mismatch-<queryId>-<id>` | Mismatch badge on a non matching card, full reasons in its `title` attribute |
+| `#untrusted-issuer` | Untrusted issuer toggle on the edit form |
+| `#untrusted-issuer-<id>` | Untrusted issuer badge on a home page card |
+| `#untrusted-issuer-<queryId>-<id>` | Untrusted issuer badge on a picker card |
 | `#new-claim-name`, `#new-claim-value`, `#add-claim` | Add a claim on the edit form |
 | `#issue-credential`, `#cancel-edit` | Edit form actions |
 | `#conformance-warnings`, `#form-error` | Warning and error containers |

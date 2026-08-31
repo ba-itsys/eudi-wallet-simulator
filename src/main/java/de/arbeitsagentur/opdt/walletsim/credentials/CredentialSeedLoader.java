@@ -59,9 +59,16 @@ public class CredentialSeedLoader implements ApplicationRunner {
         List<String> alwaysDisclosed = entry.get("alwaysDisclosedClaims") instanceof List<?> paths
                 ? paths.stream().map(String::valueOf).toList()
                 : List.of();
+        boolean untrustedIssuer = entry.get("untrustedIssuer") instanceof Boolean value && value;
         // the seed order is the order the wallet shows the claims in, so it has to survive the copy
         return new CredentialDefinition(
-                id, name, vct, validityDays, Collections.unmodifiableMap(new LinkedHashMap<>(claims)), alwaysDisclosed);
+                id,
+                name,
+                vct,
+                validityDays,
+                Collections.unmodifiableMap(new LinkedHashMap<>(claims)),
+                alwaysDisclosed,
+                untrustedIssuer);
     }
 
     private static String requireString(Map<String, Object> entry, String key) {

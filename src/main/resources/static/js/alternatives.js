@@ -27,13 +27,50 @@ function applyClaimSets() {
     });
 }
 
+// The show all toggle reveals the credentials that do not match the verifier's query. Turning it
+// off hides only the unpicked ones: a picked non matching card stays visible, so what the wallet
+// presents is always on screen. Picking another card afterwards hides the invalid card. Turning
+// the toggle on re-picks the first card of a slot that has none checked. A picker that is
+// unsatisfiable with matches alone enables the present button while the toggle is on.
+function applyShowAll() {
+    const toggle = document.getElementById('show-all-credentials');
+    if (!toggle) {
+        return;
+    }
+    document.querySelectorAll('[data-non-matching]').forEach(card => {
+        const picked = card.querySelector('input[type="radio"]:checked');
+        card.hidden = !toggle.checked && !picked;
+    });
+    if (toggle.checked) {
+        document.querySelectorAll('[data-query-slot]').forEach(slot => {
+            if (!slot.querySelector('input[type="radio"]:checked')) {
+                const first = slot.querySelector('input[type="radio"]');
+                if (first) {
+                    first.checked = true;
+                }
+            }
+        });
+    }
+    const present = document.getElementById('present-credential');
+    if (present && present.hasAttribute('data-unsatisfiable')) {
+        present.disabled = !toggle.checked;
+    }
+}
+
 function applyAll() {
     applyAlternatives();
     applyClaimSets();
+    applyShowAll();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('select[data-alternatives-select], select[data-claim-set-select]')
         .forEach(select => select.addEventListener('change', applyAll));
+    const showAll = document.getElementById('show-all-credentials');
+    if (showAll) {
+        showAll.addEventListener('change', applyShowAll);
+    }
+    document.querySelectorAll('[data-query-slot] input[type="radio"]')
+        .forEach(radio => radio.addEventListener('change', applyShowAll));
     applyAll();
 });

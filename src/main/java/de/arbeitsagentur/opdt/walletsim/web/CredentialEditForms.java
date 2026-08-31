@@ -58,6 +58,7 @@ public class CredentialEditForms {
         form.setId(id);
         form.setName(template.name());
         form.setVct(template.vct());
+        form.setUntrustedIssuer(template.untrustedIssuer());
         form.setClaimValues(renderClaimValues(template.claims()));
         form.getClaimValues().keySet().forEach(path -> form.getClaimAlwaysDisclosed()
                 .put(path, template.alwaysDisclosedClaims().contains(path)));
@@ -127,7 +128,8 @@ public class CredentialEditForms {
                 form.getVct().trim(),
                 form.getValidityDays(),
                 parseClaims(form),
-                alwaysDisclosedClaims(form));
+                alwaysDisclosedClaims(form),
+                form.isUntrustedIssuer());
     }
 
     private static List<String> alwaysDisclosedClaims(CredentialEditForm form) {

@@ -19,7 +19,9 @@ import tools.jackson.databind.ObjectMapper;
  * Evaluates a DCQL query against the wallet content and produces a presentation plan: one slot
  * per requested credential query with all matching credentials. Covers vct and claim matching,
  * claim_sets in preference order, trusted_authorities, and credential_sets combinations
- * (OID4VP 1.0 §6).
+ * (OID4VP 1.0 §6). Credentials that do not satisfy a query are offered as well, each with the
+ * reason and the requested claims it does have, so the picker can produce error answers on
+ * purpose.
  */
 @Component
 public class DcqlMatcher {
@@ -58,27 +60,35 @@ public class DcqlMatcher {
                 .toList());
         candidates.addAll(extraCredentials);
         Map<String, List<CredentialMatch>> matchesByQuery = new LinkedHashMap<>();
+        Map<String, List<CredentialMatch>> nonMatchesByQuery = new LinkedHashMap<>();
         for (CredentialQuery credentialQuery : query.credentials()) {
             List<CredentialMatch> matches = new ArrayList<>();
+            List<CredentialMatch> nonMatches = new ArrayList<>();
             for (StoredCredential credential : candidates) {
-                match(credentialQuery, credential)
-                        .ifPresent(
-                                claims -> matches.add(new CredentialMatch(credentialQuery.id(), credential, claims)));
+                evaluate(credentialQuery, credential)
+                        .ifPresent(offer -> (offer.matching() ? matches : nonMatches).add(offer));
             }
             matchesByQuery.put(credentialQuery.id(), matches);
+            nonMatchesByQuery.put(credentialQuery.id(), nonMatches);
         }
         List<String> alwaysRequested = alwaysRequestedQueryIds(query);
-        List<SetChoice> setChoices = satisfiableSetChoices(query, matchesByQuery);
+        List<SetChoice> setChoices = setChoices(query, matchesByQuery);
         Set<String> displayedQueryIds = new LinkedHashSet<>(alwaysRequested);
         setChoices.forEach(choice -> choice.options().forEach(option -> displayedQueryIds.addAll(option.queryIds())));
+        // satisfiable reflects fully matching answers only, so unsatisfiable options that are
+        // merely choosable for error testing do not count
+        Set<String> matchedQueryIds = new LinkedHashSet<>(alwaysRequested);
+        setChoices.forEach(choice -> choice.options().stream()
+                .filter(SetOption::satisfiable)
+                .forEach(option -> matchedQueryIds.addAll(option.queryIds())));
         List<QuerySlot> slots = new ArrayList<>();
-        boolean satisfiable = !displayedQueryIds.isEmpty();
+        boolean satisfiable = !matchedQueryIds.isEmpty();
         for (CredentialQuery credentialQuery : query.credentials()) {
             if (!displayedQueryIds.contains(credentialQuery.id())) {
                 continue;
             }
             List<CredentialMatch> matches = matchesByQuery.get(credentialQuery.id());
-            slots.add(new QuerySlot(credentialQuery.id(), matches));
+            slots.add(new QuerySlot(credentialQuery.id(), matches, nonMatchesByQuery.get(credentialQuery.id())));
             if (matches.isEmpty() && alwaysRequested.contains(credentialQuery.id())) {
                 satisfiable = false;
             }
@@ -102,9 +112,10 @@ public class DcqlMatcher {
                 .toList();
     }
 
-    // per credential set: the options whose queries all have at least one matching credential
-    // labels name the credential types behind the query ids, which reads better than cred1 + cred2
-    private static List<SetOption> setOptions(DcqlQuery query, List<List<String>> options) {
+    // per credential set: every option, each marked whether all its queries have a matching
+    // credential, so an option a modified credential broke stays choosable for error testing.
+    // Labels name the credential types behind the query ids, which reads better than cred1 + cred2
+    private static List<SetChoice> setChoices(DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
         Map<String, String> descriptions = new LinkedHashMap<>();
         query.credentials()
                 .forEach(credentialQuery -> descriptions.put(
@@ -112,30 +123,21 @@ public class DcqlMatcher {
                         credentialQuery.vctValues().isEmpty()
                                 ? credentialQuery.id()
                                 : String.join(" or ", credentialQuery.vctValues())));
-        List<SetOption> setOptions = new ArrayList<>();
-        for (int i = 0; i < options.size(); i++) {
-            List<String> queryIds = options.get(i);
-            String label = queryIds.stream()
-                    .map(id -> descriptions.getOrDefault(id, id))
-                    .collect(Collectors.joining(" + "));
-            setOptions.add(new SetOption(i, label, queryIds));
-        }
-        return setOptions;
-    }
-
-    private static List<SetChoice> satisfiableSetChoices(
-            DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
         List<SetChoice> choices = new ArrayList<>();
         for (int i = 0; i < query.credentialSets().size(); i++) {
             CredentialSetQuery set = query.credentialSets().get(i);
-            List<List<String>> satisfiable = set.options().stream()
-                    .filter(option -> option.stream()
-                            .allMatch(id ->
-                                    !matchesByQuery.getOrDefault(id, List.of()).isEmpty()))
-                    .toList();
-            if (!satisfiable.isEmpty()) {
-                choices.add(new SetChoice(i, set.isRequired(), setOptions(query, satisfiable)));
+            List<SetOption> options = new ArrayList<>();
+            for (int j = 0; j < set.options().size(); j++) {
+                List<String> queryIds = set.options().get(j);
+                String label = queryIds.stream()
+                        .map(id -> descriptions.getOrDefault(id, id))
+                        .collect(Collectors.joining(" + "));
+                boolean optionSatisfiable = queryIds.stream()
+                        .allMatch(id ->
+                                !matchesByQuery.getOrDefault(id, List.of()).isEmpty());
+                options.add(new SetOption(j, label, queryIds, optionSatisfiable));
             }
+            choices.add(new SetChoice(i, set.isRequired(), options));
         }
         return choices;
     }
@@ -149,17 +151,65 @@ public class DcqlMatcher {
                                 !matchesByQuery.getOrDefault(id, List.of()).isEmpty())));
     }
 
-    private Optional<List<ClaimSetOption>> match(CredentialQuery query, StoredCredential credential) {
+    // A credential's offer for one query: a match when it satisfies the query, an offer with the
+    // mismatch reasons otherwise. The badge on the card only fits short labels, so the full
+    // reasons go into a separate detail shown on hover. Queries for other formats offer nothing,
+    // the wallet only holds SD-JWT VCs.
+    private Optional<CredentialMatch> evaluate(CredentialQuery query, StoredCredential credential) {
         if (!CredentialDefinition.FORMAT_SD_JWT_VC.equals(query.format())) {
             return Optional.empty();
         }
+        List<String> labels = new ArrayList<>();
+        List<String> details = new ArrayList<>();
         if (!VctMatcher.matches(query.vctValues(), credential.vct())) {
-            return Optional.empty();
+            labels.add("vct");
+            details.add("vct does not match the requested values");
         }
         if (!trustedAuthorityMatcher.matches(credential, query.trustedAuthorities())) {
-            return Optional.empty();
+            labels.add("issuer");
+            details.add("issuer does not match the trusted authorities");
         }
-        return claimsToDisclose(query, credential);
+        Optional<List<ClaimSetOption>> satisfied = claimsToDisclose(query, credential);
+        if (satisfied.isEmpty()) {
+            labels.add("claims");
+            details.add("requested claims are missing");
+        }
+        if (labels.isEmpty()) {
+            return Optional.of(new CredentialMatch(query.id(), credential, satisfied.get(), null, null));
+        }
+        return Optional.of(new CredentialMatch(
+                query.id(),
+                credential,
+                availableClaimOptions(query, credential),
+                "no match: " + String.join(", ", labels),
+                String.join(", ", details)));
+    }
+
+    // the requested claims the credential does have, per claim set option, for partial answers
+    private static List<ClaimSetOption> availableClaimOptions(CredentialQuery query, StoredCredential credential) {
+        if (query.claims().isEmpty()) {
+            return List.of(ClaimSetOption.of(0, List.of()));
+        }
+        if (query.claimSets().isEmpty()) {
+            return List.of(ClaimSetOption.of(0, claimPaths(resolvable(query.claims(), credential))));
+        }
+        Map<String, ClaimQuery> claimsById = new LinkedHashMap<>();
+        query.claims().forEach(claim -> claimsById.put(claim.id(), claim));
+        List<ClaimSetOption> options = new ArrayList<>();
+        for (int i = 0; i < query.claimSets().size(); i++) {
+            List<ClaimQuery> optionClaims = query.claimSets().get(i).stream()
+                    .map(claimsById::get)
+                    .filter(Objects::nonNull)
+                    .toList();
+            options.add(ClaimSetOption.of(i, claimPaths(resolvable(optionClaims, credential))));
+        }
+        return options;
+    }
+
+    private static List<ClaimQuery> resolvable(List<ClaimQuery> claims, StoredCredential credential) {
+        return claims.stream()
+                .filter(claim -> resolve(credential.claims(), claim.path(), 0, claim.values()))
+                .toList();
     }
 
     /**
