@@ -441,7 +441,7 @@ class EditDuringFlowTest {
                 "id": "pid",
                 "format": "dc+sd-jwt",
                 "meta": {"vct_values": ["urn:eudi:pid:de:1"]},
-                "claims": [{"path": ["family_name"]}, {"path": ["title"]}]
+                "claims": [{"path": ["family_name"]}, {"path": ["academic_title"]}]
             }]}
             """;
 
@@ -466,7 +466,7 @@ class EditDuringFlowTest {
                             + URLEncoder.encode(flowState, StandardCharsets.UTF_8))
                     .retrieve()
                     .body(String.class);
-            assertThat(tagAt(editForm, "name=\"claimValues[title]\""))
+            assertThat(tagAt(editForm, "name=\"claimValues[academic_title]\""))
                     .as("an empty claim renders as a quoted empty string instead of a blank field")
                     .contains("value=\"&quot;&quot;\"");
 
@@ -503,8 +503,8 @@ class EditDuringFlowTest {
                     new ObjectMapper().readValue(response.formParameters().get("vp_token"), JsonNode.class);
             assertThat(disclosures(vpToken.get("pid").get(0).asText()))
                     .as("the empty claim is disclosed with its empty value")
-                    .anyMatch(disclosure ->
-                            "title".equals(disclosure.getClaimName()) && "".equals(disclosure.getClaimValue()));
+                    .anyMatch(disclosure -> "academic_title".equals(disclosure.getClaimName())
+                            && "".equals(disclosure.getClaimValue()));
         }
     }
 
