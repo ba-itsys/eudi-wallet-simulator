@@ -82,14 +82,16 @@ with `alwaysDisclosedClaims`.
 The pre defined PID credentials use the claim names of the EUDI PID rulebook for the SD-JWT VC
 encoding. All claims are selectively disclosable unless a credential lists them in
 `alwaysDisclosedClaims`. The Dutch credential carries the optional EU attributes such as
-`address.house_number`, `sex`, `email` and `phone_number` so a verifier can be tested against
-those as well. The two `urn:eudi:pid:de:1` credentials follow the German PID rulebook as the
-German PID provider documents it under [PID-Credential
-Claims](https://demo.pid-provider.bundesdruckerei.de/credential-claims). Every claim of a German
-PID is always present, so a value the eID does not carry is an empty string, string values come
+`address.house_number`, `sex`, `email`, `phone_number` and the `picture` portrait so a verifier
+can be tested against those as well. The two `urn:eudi:pid:de:1` credentials follow the [German
+PID Rulebook
+1.0.0](https://bmi.usercontent.opencode.de/eudi-wallet/eidas-2.0-architekturkonzept/content/features/PID/german-pid-rulebook/)
+of the BMI blueprint. A string value the eID does not carry is an empty string, string values come
 from the eID in upper case, and there is no document number, personal administrative number,
-issuing jurisdiction, sex or date of issuance. The Italian credential follows the Italian profile,
-which carries the codice fiscale as `tax_id_code` and has no address.
+issuing jurisdiction, sex, date of issuance or date of expiry. The national additions are
+`birth_name`, `academic_title`, `raw_eid_birth_date`, `age_equal_or_over` and
+`source_document_type`. The Italian credential follows the Italian profile, which carries the
+codice fiscale as `tax_id_code` and has no address.
 
 During a verification the picker shows one selection group per requested DCQL credential query.
 The evaluation covers vct and claim matching, claim_sets in preference order, credential_sets
