@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.0...v1.6.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* default credentials based on current rulebooks ([082e7d9](https://github.com/ba-itsys/eudi-wallet-simulator/commit/082e7d92bfc4ac08670f3cf4d27e1b6a54f37b8f))
+
 ## [1.6.0](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.5.0...v1.6.0) (2026-08-31)
 
 
