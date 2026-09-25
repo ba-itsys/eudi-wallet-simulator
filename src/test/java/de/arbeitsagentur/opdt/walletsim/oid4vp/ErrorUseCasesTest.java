@@ -38,8 +38,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ErrorUseCasesTest {
 
-    private static final String DCQL_QUERY =
-            """
+    private static final String DCQL_QUERY = """
             {"credentials": [{
                 "id": "pid",
                 "format": "dc+sd-jwt",
@@ -48,8 +47,7 @@ class ErrorUseCasesTest {
             }]}
             """;
 
-    private static final String UNSATISFIABLE_DCQL_QUERY =
-            """
+    private static final String UNSATISFIABLE_DCQL_QUERY = """
             {"credentials": [{
                 "id": "pid",
                 "format": "dc+sd-jwt",
@@ -157,8 +155,7 @@ class ErrorUseCasesTest {
         }
     }
 
-    private static final String SET_DCQL_QUERY =
-            """
+    private static final String SET_DCQL_QUERY = """
             {"credentials": [
                 {"id": "pid", "format": "dc+sd-jwt", "meta": {"vct_values": ["urn:eudi:pid:de:1"]},
                  "claims": [{"path": ["family_name"]}]},

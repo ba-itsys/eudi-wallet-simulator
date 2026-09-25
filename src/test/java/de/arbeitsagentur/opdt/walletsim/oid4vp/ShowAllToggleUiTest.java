@@ -25,8 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ShowAllToggleUiTest {
 
-    private static final String DCQL_QUERY =
-            """
+    private static final String DCQL_QUERY = """
             {"credentials": [{
                 "id": "pid",
                 "format": "dc+sd-jwt",
@@ -35,8 +34,7 @@ class ShowAllToggleUiTest {
             }]}
             """;
 
-    private static final String UNSATISFIABLE_DCQL_QUERY =
-            """
+    private static final String UNSATISFIABLE_DCQL_QUERY = """
             {"credentials": [{
                 "id": "pid",
                 "format": "dc+sd-jwt",
