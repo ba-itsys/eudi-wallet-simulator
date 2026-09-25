@@ -99,7 +99,6 @@ class TrustedAuthoritiesTest {
                     "claims": [{"path": ["family_name"]}],
                     "trusted_authorities": [{"type": "%s", "values": ["%s"]}]
                 }]}
-                """
-                .formatted(type, value);
+                """.formatted(type, value);
     }
 }

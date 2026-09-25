@@ -31,8 +31,7 @@ class CredentialAndClaimSetsTest {
 
     @Test
     void claimSetsFallBackToTheFirstSatisfiableOption() throws Exception {
-        String dcql =
-                """
+        String dcql = """
                 {"credentials": [{
                     "id": "pid",
                     "format": "dc+sd-jwt",
@@ -75,8 +74,7 @@ class CredentialAndClaimSetsTest {
 
     @Test
     void credentialSetsProduceAMultiEntryVpToken() throws Exception {
-        String dcql =
-                """
+        String dcql = """
                 {"credentials": [
                     {"id": "pid1", "format": "dc+sd-jwt", "meta": {"vct_values": ["urn:eudi:pid:1"]},
                      "claims": [{"path": ["family_name"]}]},
@@ -121,8 +119,7 @@ class CredentialAndClaimSetsTest {
         }
     }
 
-    private static final String ALTERNATIVES_DCQL =
-            """
+    private static final String ALTERNATIVES_DCQL = """
             {"credentials": [
                 {"id": "pid", "format": "dc+sd-jwt", "meta": {"vct_values": ["urn:eudi:pid:1"]},
                  "claims": [{"path": ["family_name"]}]},

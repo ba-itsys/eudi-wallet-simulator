@@ -55,8 +55,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 public final class TestVerifier implements AutoCloseable {
 
-    private static final String PID_DCQL_QUERY =
-            """
+    private static final String PID_DCQL_QUERY = """
             {"credentials": [{
                 "id": "pid",
                 "format": "dc+sd-jwt",

@@ -126,7 +126,6 @@ class VctInheritanceTest {
                     "meta": {"vct_values": ["%s"]},
                     "claims": [{"path": ["family_name"]}]
                 }]}
-                """
-                .formatted(vct);
+                """.formatted(vct);
     }
 }

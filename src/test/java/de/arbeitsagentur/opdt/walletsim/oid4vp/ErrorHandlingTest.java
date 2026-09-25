@@ -60,8 +60,7 @@ class ErrorHandlingTest {
 
     @Test
     void requestForAnUnsupportedFormatIsAnsweredWithVpFormatsNotSupported() throws Exception {
-        String mdocOnlyQuery =
-                """
+        String mdocOnlyQuery = """
                 {"credentials": [{
                     "id": "pid",
                     "format": "mso_mdoc",
