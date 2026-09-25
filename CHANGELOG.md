@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.6.2](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.1...v1.6.2) (2026-09-25)
+
+
+### Dependencies
+
+* **deps-dev:** Bump com.diffplug.spotless:spotless-maven-plugin ([33009c9](https://github.com/ba-itsys/eudi-wallet-simulator/commit/33009c963caf66781794404ce908693a1bf6f204))
+* **deps:** Bump com.nimbusds:nimbus-jose-jwt from 10.6 to 10.10 ([d6658f9](https://github.com/ba-itsys/eudi-wallet-simulator/commit/d6658f95b0a43bbd4dd7633fea4cd594d2379c80))
+* **deps:** Bump org.bouncycastle:bcpkix-jdk18on from 1.83 to 1.86 ([c70c8dd](https://github.com/ba-itsys/eudi-wallet-simulator/commit/c70c8ddced568e18ef451db7ef95d80a0fb37439))
+* **deps:** Bump org.springframework.boot:spring-boot-starter-parent ([688a308](https://github.com/ba-itsys/eudi-wallet-simulator/commit/688a30887f3b2324518efab4de5416943315d45c))
+* **deps:** Bump org.webjars:webjars-locator-lite from 1.1.4 to 1.1.5 ([ef591f6](https://github.com/ba-itsys/eudi-wallet-simulator/commit/ef591f6dd856bc1d039b89676cffcd0995214606))
+* **deps:** Bump org.yaml:snakeyaml from 2.6 to 2.7 ([80530f8](https://github.com/ba-itsys/eudi-wallet-simulator/commit/80530f8f3a718e1c51b20624f6800cebd5ced474))
+
+
+### Documentation
+
+* add contributing guidelines to README ([9a38060](https://github.com/ba-itsys/eudi-wallet-simulator/commit/9a38060cb327ce73ad2f2b8ee36c1395453b1c78))
+
 ## [1.6.1](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.0...v1.6.1) (2026-09-02)
 
 
