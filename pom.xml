@@ -90,7 +90,7 @@
         <dependency>
             <groupId>com.authlete</groupId>
             <artifactId>sd-jwt</artifactId>
-            <version>1.9</version>
+            <version>1.10</version>
         </dependency>
         <!-- X.509 certificate generation for the simulator CA and leaf certs -->
         <dependency>
