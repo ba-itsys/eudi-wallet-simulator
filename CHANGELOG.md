@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.3](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.2...v1.6.3) (2026-10-30)
+
+
+### Dependencies
+
+* **deps:** Bump org.springframework.boot:spring-boot-starter-parent ([cdc146e](https://github.com/ba-itsys/eudi-wallet-simulator/commit/cdc146e7d3281d141fde8a2f4fe22f3463eb9140))
+
 ## [1.6.2](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.1...v1.6.2) (2026-09-25)
 
 
