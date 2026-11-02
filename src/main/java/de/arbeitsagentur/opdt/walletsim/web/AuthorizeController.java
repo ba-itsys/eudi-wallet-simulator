@@ -372,8 +372,9 @@ public class AuthorizeController {
         model.addAttribute("slots", plan.slots());
         model.addAttribute("setChoices", plan.setChoices());
         model.addAttribute("satisfiable", plan.satisfiable());
-        model.addAttribute("showAllAvailable", plan.slots().stream().anyMatch(slot -> !slot.nonMatches()
-                .isEmpty()));
+        model.addAttribute(
+                "showAllAvailable",
+                plan.slots().stream().anyMatch(slot -> !slot.nonMatches().isEmpty()));
         model.addAttribute("flowState", request.rawRequestObject());
         model.addAttribute("selection", selection);
         return "presentation_select";

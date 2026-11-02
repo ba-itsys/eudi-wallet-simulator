@@ -85,8 +85,9 @@ public final class TestForwardProxy implements AutoCloseable {
     private void forwardRequest(OutputStream toOrigin, String method, URI target, List<String> headers, byte[] body)
             throws IOException {
         StringBuilder request = new StringBuilder(method + " " + originForm(target) + " HTTP/1.1\r\n");
-        headers.stream().filter(header -> !isConnectionHeader(header)).forEach(header -> request.append(header)
-                .append("\r\n"));
+        headers.stream()
+                .filter(header -> !isConnectionHeader(header))
+                .forEach(header -> request.append(header).append("\r\n"));
         request.append("Connection: close\r\n\r\n");
         toOrigin.write(request.toString().getBytes(StandardCharsets.UTF_8));
         toOrigin.write(body);

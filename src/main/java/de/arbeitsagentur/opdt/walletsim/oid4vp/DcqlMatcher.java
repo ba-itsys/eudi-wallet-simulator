@@ -146,9 +146,11 @@ public class DcqlMatcher {
             DcqlQuery query, Map<String, List<CredentialMatch>> matchesByQuery) {
         return query.credentialSets().stream()
                 .filter(CredentialSetQuery::isRequired)
-                .anyMatch(set -> set.options().stream().noneMatch(option -> option.stream()
-                        .allMatch(id ->
-                                !matchesByQuery.getOrDefault(id, List.of()).isEmpty())));
+                .anyMatch(set -> set.options().stream()
+                        .noneMatch(option -> option.stream()
+                                .allMatch(id -> !matchesByQuery
+                                        .getOrDefault(id, List.of())
+                                        .isEmpty())));
     }
 
     // A credential's offer for one query: a match when it satisfies the query, an offer with the
