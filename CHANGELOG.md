@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.3](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.2...v1.6.3) (2026-11-02)
+
+
+### Dependencies
+
+* **deps-dev:** bump com.diffplug.spotless:spotless-maven-plugin ([a923182](https://github.com/ba-itsys/eudi-wallet-simulator/commit/a923182341b82e1e56a0a99efbcf2b9a57efa0bd))
+* **deps-dev:** Bump org.htmlunit:htmlunit from 5.3.0 to 5.6.0 ([7d03509](https://github.com/ba-itsys/eudi-wallet-simulator/commit/7d035093c52a6a5d3cb6e27c6c94cac634e2b6e0))
+* **deps:** Bump com.authlete:sd-jwt from 1.9 to 1.10 ([6f4cb42](https://github.com/ba-itsys/eudi-wallet-simulator/commit/6f4cb4233136805d790fe73973477c1f546b6d5d))
+* **deps:** Bump org.springframework.boot:spring-boot-starter-parent ([cdc146e](https://github.com/ba-itsys/eudi-wallet-simulator/commit/cdc146e7d3281d141fde8a2f4fe22f3463eb9140))
+
 ## [1.6.2](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.1...v1.6.2) (2026-09-25)
 
 
