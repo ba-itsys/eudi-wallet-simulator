@@ -60,8 +60,10 @@ public class CredentialEditForms {
         form.setVct(template.vct());
         form.setUntrustedIssuer(template.untrustedIssuer());
         form.setClaimValues(renderClaimValues(template.claims()));
-        form.getClaimValues().keySet().forEach(path -> form.getClaimAlwaysDisclosed()
-                .put(path, template.alwaysDisclosedClaims().contains(path)));
+        form.getClaimValues()
+                .keySet()
+                .forEach(path -> form.getClaimAlwaysDisclosed()
+                        .put(path, template.alwaysDisclosedClaims().contains(path)));
         return form;
     }
 
@@ -72,8 +74,9 @@ public class CredentialEditForms {
         form.setVct("urn:eudi:pid:1");
         form.setClaimValues(
                 renderClaimValues(Map.of("family_name", "Doe", "given_name", "Jane", "birthdate", "1990-01-01")));
-        form.getClaimValues().keySet().forEach(path -> form.getClaimAlwaysDisclosed()
-                .put(path, false));
+        form.getClaimValues()
+                .keySet()
+                .forEach(path -> form.getClaimAlwaysDisclosed().put(path, false));
         return form;
     }
 

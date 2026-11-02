@@ -225,14 +225,13 @@ public class SimulatorPki {
             JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
             try (PEMParser privateParser = new PEMParser(new FileReader(privateKeyFile.toFile()));
                     PEMParser publicParser = new PEMParser(new FileReader(publicKeyFile.toFile()))) {
-                PrivateKeyInfo privateKeyInfo =
-                        switch (privateParser.readObject()) {
-                            case PEMKeyPair pemKeyPair -> pemKeyPair.getPrivateKeyInfo();
-                            case PrivateKeyInfo info -> info;
-                            case Object other ->
-                                throw new IllegalStateException("Unexpected PEM content in " + privateKeyFile + ": "
-                                        + other.getClass().getName());
-                        };
+                PrivateKeyInfo privateKeyInfo = switch (privateParser.readObject()) {
+                    case PEMKeyPair pemKeyPair -> pemKeyPair.getPrivateKeyInfo();
+                    case PrivateKeyInfo info -> info;
+                    case Object other ->
+                        throw new IllegalStateException("Unexpected PEM content in " + privateKeyFile + ": "
+                                + other.getClass().getName());
+                };
                 SubjectPublicKeyInfo publicKeyInfo = (SubjectPublicKeyInfo) publicParser.readObject();
                 return new KeyPair(converter.getPublicKey(publicKeyInfo), converter.getPrivateKey(privateKeyInfo));
             }
