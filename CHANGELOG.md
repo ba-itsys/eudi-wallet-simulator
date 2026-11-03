@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.4](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.3...v1.6.4) (2026-11-03)
+
+
+### Dependencies
+
+* **deps:** bump com.authlete:sd-jwt from 1.10 to 1.11 ([dc6af8f](https://github.com/ba-itsys/eudi-wallet-simulator/commit/dc6af8f60dd0cdeb8bf47304ccfce250b56d80a8))
+
 ## [1.6.3](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.2...v1.6.3) (2026-11-02)
 
 
