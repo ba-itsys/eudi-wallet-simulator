@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.5](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.4...v1.6.5) (2026-11-17)
+
+
+### Dependencies
+
+* **deps:** bump org.bouncycastle:bcpkix-jdk18on from 1.86 to 1.87 ([c7ef848](https://github.com/ba-itsys/eudi-wallet-simulator/commit/c7ef8485c08ac706817ae510b49778b4247d2836))
+
 ## [1.6.4](https://github.com/ba-itsys/eudi-wallet-simulator/compare/v1.6.3...v1.6.4) (2026-11-10)
 
 
